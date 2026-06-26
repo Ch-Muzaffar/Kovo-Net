@@ -1,0 +1,18 @@
+{
+  "version": 2,
+  "outputDirectory": "kovo_frontend/dist",
+  "rewrites": [
+    {
+      "source": "/api/v1/:path*",
+      "destination": "/api/index.js"
+    },
+    {
+      "source": "/assets/:path*",
+      "destination": "/kovo_frontend/dist/assets/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/kovo_frontend/dist/index.html"
+    }
+  ]
+}
