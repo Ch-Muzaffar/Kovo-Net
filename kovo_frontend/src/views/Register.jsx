@@ -21,6 +21,7 @@ export default function Register() {
   });
   const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const steps = [
@@ -36,8 +37,11 @@ export default function Register() {
     if (step === 1) {
       if (!form.email) newErrors.email = 'Email is required.';
       else if (!validateEmail(form.email)) newErrors.email = 'Enter a valid email.';
-      if (!form.password) newErrors.password = 'Password is required.';
-      else if (!validatePassword(form.password)) newErrors.password = 'Min 8 chars, 1 uppercase, 1 number.';
+      if (!form.password) {
+        newErrors.password = 'Password is required.';
+      } else if (form.password.length < 8) {
+        newErrors.password = 'Password must be at least 8 characters long.';
+      }
       if (form.password !== form.confirmPassword) newErrors.confirmPassword = 'Passwords do not match.';
       if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return; }
       setStep(2);
@@ -83,7 +87,28 @@ export default function Register() {
   const field = (key, val) => setForm(p => ({ ...p, [key]: val }));
   const clearErr = (key) => setErrors(p => ({ ...p, [key]: null }));
 
-  const pwStrength = form.password.length >= 12 ? 4 : form.password.length >= 8 ? 3 : form.password.length >= 5 ? 2 : form.password.length > 0 ? 1 : 0;
+  const getPasswordStrength = () => {
+    const p = form.password;
+    if (!p) return { score: 0, label: '', color: 'var(--border-color)', bars: 0 };
+    if (p.length < 8) return { score: 1, label: 'Too short (min 8 characters)', color: '#EF4444', bars: 1 };
+
+    const hasUpper = /[A-Z]/.test(p);
+    const hasLower = /[a-z]/.test(p);
+    const hasNumber = /[0-9]/.test(p);
+    const hasSymbol = /[^A-Za-z0-9]/.test(p);
+
+    const count = [hasUpper, hasLower, hasNumber, hasSymbol].filter(Boolean).length;
+
+    if (count === 4) {
+      return { score: 3, label: 'Strong', color: '#10B981', bars: 3 };
+    } else if (count >= 2) {
+      return { score: 2, label: 'Medium', color: '#F59E0B', bars: 2 };
+    } else {
+      return { score: 1, label: 'Weak', color: '#EF4444', bars: 1 };
+    }
+  };
+
+  const strength = getPasswordStrength();
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', background: 'var(--bg-primary)' }}>
@@ -190,23 +215,35 @@ export default function Register() {
                   <div style={{ marginBottom: '1rem' }}>
                     <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '5px' }} htmlFor="reg-pass">Password</label>
                     <div style={{ position: 'relative' }}>
-                      <input id="reg-pass" type={showPassword ? 'text' : 'password'} className={`input-field ${errors.password ? 'error' : ''}`} placeholder="Min 8 chars, 1 uppercase, 1 number"
+                      <input id="reg-pass" type={showPassword ? 'text' : 'password'} className={`input-field ${errors.password ? 'error' : ''}`} placeholder="Min 8 characters"
                         value={form.password} onChange={e => { field('password', e.target.value); clearErr('password'); }} autoComplete="new-password" required />
                       <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }} aria-label="Toggle password">
                         <Icon icon={showPassword ? 'lucide:eye-off' : 'lucide:eye'} style={{ fontSize: '1.1rem' }} />
                       </button>
                     </div>
-                    <div style={{ display: 'flex', gap: '4px', marginTop: '6px' }}>
-                      {[1, 2, 3, 4].map(i => (
-                        <div key={i} style={{ flex: 1, height: '3px', borderRadius: '2px', background: pwStrength >= i ? (i <= 2 ? '#EF4444' : i === 3 ? '#F59E0B' : '#10B981') : 'var(--border-color)', transition: 'background 0.3s' }} />
-                      ))}
-                    </div>
+                    {form.password && (
+                      <div style={{ marginTop: '6px' }}>
+                        <div style={{ display: 'flex', gap: '4px', marginBottom: '4px' }}>
+                          {[1, 2, 3].map(i => (
+                            <div key={i} style={{ flex: 1, height: '4px', borderRadius: '2px', background: strength.bars >= i ? strength.color : 'var(--border-color)', transition: 'background 0.3s' }} />
+                          ))}
+                        </div>
+                        <div style={{ fontSize: '0.75rem', fontWeight: 600, color: strength.color, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          Password strength: {strength.label}
+                        </div>
+                      </div>
+                    )}
                     <p className={`error-text ${errors.password ? 'visible' : ''}`}>{errors.password}</p>
                   </div>
                   <div style={{ marginBottom: '1.25rem' }}>
                     <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '5px' }} htmlFor="reg-confirm">Confirm Password</label>
-                    <input id="reg-confirm" type="password" className={`input-field ${errors.confirmPassword ? 'error' : ''}`} placeholder="Re-enter your password"
-                      value={form.confirmPassword} onChange={e => { field('confirmPassword', e.target.value); clearErr('confirmPassword'); }} autoComplete="new-password" required />
+                    <div style={{ position: 'relative' }}>
+                      <input id="reg-confirm" type={showConfirmPassword ? 'text' : 'password'} className={`input-field ${errors.confirmPassword ? 'error' : ''}`} placeholder="Re-enter your password"
+                        value={form.confirmPassword} onChange={e => { field('confirmPassword', e.target.value); clearErr('confirmPassword'); }} autoComplete="new-password" required />
+                      <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }} aria-label="Toggle confirm password">
+                        <Icon icon={showConfirmPassword ? 'lucide:eye-off' : 'lucide:eye'} style={{ fontSize: '1.1rem' }} />
+                      </button>
+                    </div>
                     <p className={`error-text ${errors.confirmPassword ? 'visible' : ''}`}>{errors.confirmPassword}</p>
                   </div>
                   <button type="submit" className="btn-gradient" style={{ width: '100%', padding: '0.78rem', fontSize: '0.9rem', fontWeight: 700 }}>Continue →</button>

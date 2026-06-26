@@ -315,10 +315,11 @@ export default function Feed() {
         <header
           className="feed-header sticky top-0 z-30"
           style={{
-            background: 'rgba(248,250,252,0.88)',
-            backdropFilter: 'blur(20px) saturate(180%)',
-            WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-            borderBottom: '1px solid rgba(15,23,42,0.07)',
+            background: 'rgba(255, 255, 255, 0.45)',
+            backdropFilter: 'blur(24px) saturate(200%)',
+            WebkitBackdropFilter: 'blur(24px) saturate(200%)',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.3)',
+            boxShadow: '0 8px 32px rgba(15, 23, 42, 0.08)',
             width: '100%',
             position: 'sticky',
           }}
