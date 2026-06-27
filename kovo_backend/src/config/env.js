@@ -1,5 +1,12 @@
 'use strict';
 
+const dns = require('dns');
+try {
+  dns.setServers(['8.8.8.8', '8.8.4.4']);
+} catch (e) {
+  console.warn('Failed to set custom DNS servers:', e.message);
+}
+
 const z = require('zod');
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
