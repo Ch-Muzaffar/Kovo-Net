@@ -256,9 +256,10 @@ export default function Feed() {
           const res = await usersApi.getProfile(activeUserId);
           const firstName = res.first_name || '';
           const lastName = res.last_name || '';
+          const autoUsername = `${firstName}.${lastName}`.toLowerCase().replace(/\s+/g, '') || 'user';
           profileData = {
             id: res.id,
-            username: `${firstName}.${lastName}`.toLowerCase().replace(/\s+/g, '') || 'user',
+            username: res.username || autoUsername,
             firstName,
             lastName,
             department: res.profession || res.department || '',
@@ -1302,8 +1303,16 @@ export default function Feed() {
                                   className="btn-gradient px-5 py-2 text-sm flex items-center gap-2"
                                   style={{ borderRadius: '9999px' }}
                                   onClick={async () => {
-                                    await sendConnectionRequest(u.id);
-                                    setProfileConnectionStatus('pending_sent');
+                                    try {
+                                      const result = await sendConnectionRequest(u.id);
+                                      setProfileConnectionStatus('pending_sent');
+                                      // Capture connection ID for withdraw
+                                      if (result?.data?.id) {
+                                        setProfileConnectionId(result.data.id);
+                                      }
+                                    } catch {
+                                      // Error already shown via toast in sendConnectionRequest
+                                    }
                                   }}
                                 >
                                   <Icon icon="lucide:user-plus" style={{ fontSize: '0.9rem' }} />

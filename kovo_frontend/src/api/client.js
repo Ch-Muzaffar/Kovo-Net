@@ -78,8 +78,10 @@ export async function apiRequest(path, options = {}, retry = true) {
   if (!res.ok) {
     let errorBody;
     try { errorBody = await res.json(); } catch { errorBody = { message: res.statusText }; }
-    const message = errorBody?.error?.message || errorBody?.message || `Request failed (${res.status})`;
-    throw new ApiError(message, res.status, errorBody?.error?.code || 'API_ERROR');
+    const rawError = errorBody?.error;
+    const message = (typeof rawError === 'string' ? rawError : rawError?.message) || errorBody?.message || `Request failed (${res.status})`;
+    const errorCode = (typeof rawError === 'object' ? rawError?.code : errorBody?.code) || 'API_ERROR';
+    throw new ApiError(message, res.status, errorCode);
   }
 
   return res.json();

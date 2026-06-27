@@ -371,7 +371,8 @@ const mockAuth = {
     async createUser({ email, password }) {
       const exists = tables.users.find(u => u.email === email);
       if (exists) return { data: null, error: { message: 'User already registered' } };
-      const user = { id: uuid(), email, password_hash: password, created_at: new Date().toISOString() };
+      const id = `user ${tables.users.length + 1}`;
+      const user = { id, email, password_hash: password, created_at: new Date().toISOString() };
       tables.users.push(user);
       return { data: { user: { id: user.id, email: user.email } }, error: null };
     }
@@ -380,7 +381,8 @@ const mockAuth = {
   async signUp({ email, password }) {
     const exists = tables.users.find(u => u.email === email);
     if (exists) return { data: null, error: { message: 'User already registered' } };
-    const user = { id: uuid(), email, password_hash: password, created_at: new Date().toISOString() };
+    const id = `user ${tables.users.length + 1}`;
+    const user = { id, email, password_hash: password, created_at: new Date().toISOString() };
     tables.users.push(user);
     const session = _createSession(user);
     return { data: { user: { id: user.id, email: user.email }, session }, error: null };

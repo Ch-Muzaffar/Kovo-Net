@@ -3,7 +3,7 @@
 const jwt = require('jsonwebtoken');
 const { supabaseAdmin } = require('../../config/supabase');
 const { onboardUser, acceptTos, refreshToken, logout } = require('./auth.service');
-const { BadRequestError } = require('../../utils/errors');
+const { BadRequestError, ConflictError } = require('../../utils/errors');
 
 class AuthController {
   /** POST /api/v1/auth/register */
@@ -111,12 +111,39 @@ class AuthController {
     }
   }
 
+  /** GET /api/v1/auth/check-username?username=xxx */
+  static async checkUsername(req, res, next) {
+    try {
+      const { username } = req.query;
+      if (!username || username.length < 3) {
+        throw new BadRequestError('Username must be at least 3 characters');
+      }
+      if (!/^[a-zA-Z0-9._]+$/.test(username)) {
+        throw new BadRequestError('Username can only contain letters, numbers, dots, and underscores');
+      }
+      const { data: existing, error } = await supabaseAdmin
+        .from('user_profiles')
+        .select('id')
+        .ilike('username', username)
+        .maybeSingle();
+
+      if (error) throw new BadRequestError('Failed to check username');
+
+      // If checking for a logged-in user, exclude their own username
+      const isTaken = existing && existing.id !== (req.user?.id || null);
+
+      res.status(200).json({ data: { available: !isTaken, username } });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   /** GET /api/v1/auth/me */
   static async me(req, res, next) {
     try {
       const { data: profile, error: profileError } = await req.supabase
         .from('user_profiles')
-        .select('id, first_name, last_name, is_profile_complete, tos_accepted, avatar_url, profession, user_type, country, city, bio')
+        .select('id, username, first_name, last_name, is_profile_complete, tos_accepted, avatar_url, profession, user_type, country, city, bio, master_skills, departments, hobbies')
         .eq('id', req.user.id)
         .maybeSingle();
 

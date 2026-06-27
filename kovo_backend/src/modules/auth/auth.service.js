@@ -10,6 +10,7 @@ async function onboardUser(userId, data) {
     .from('user_profiles')
     .upsert({
       id: userId,
+      username: data.username || null,
       first_name: data.first_name,
       last_name: data.last_name,
       date_of_birth: data.date_of_birth,
@@ -19,7 +20,7 @@ async function onboardUser(userId, data) {
       user_type: data.user_type,
       is_profile_complete: true,
     })
-    .select('id, first_name, last_name, is_profile_complete, tos_accepted')
+    .select('id, username, first_name, last_name, is_profile_complete, tos_accepted')
     .single();
 
   if (error) {

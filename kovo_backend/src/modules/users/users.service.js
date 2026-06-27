@@ -10,8 +10,12 @@ const POINTS_CACHE_PREFIX = 'points:';
 
 async function getProfile(userIdOrUsername) {
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const isNumeric = /^\d+$/.test(userIdOrUsername);
+  const isSequential = /^user[\s-]?\d+$/i.test(userIdOrUsername);
+  const isAresId = /^00000000-0000-0000-0000-00000000000[a-z0-9]$/i.test(userIdOrUsername);
+  const isId = uuidRegex.test(userIdOrUsername) || isNumeric || isSequential || isAresId;
 
-  if (!uuidRegex.test(userIdOrUsername)) {
+  if (!isId) {
     // Treat as username (e.g. bob.jones or @bob.jones)
     const cleanUsername = userIdOrUsername.replace(/^@/, '').toLowerCase().trim();
     const parts = cleanUsername.split('.');
@@ -20,7 +24,7 @@ async function getProfile(userIdOrUsername) {
 
     let query = supabaseAdmin
       .from('user_profiles')
-      .select('id, first_name, last_name, avatar_url, bio, departments, hobbies, master_skills, user_type, is_profile_complete, created_at');
+      .select('id, username, first_name, last_name, avatar_url, bio, departments, hobbies, master_skills, user_type, is_profile_complete, created_at');
 
     if (firstNameQuery && lastNameQuery) {
       query = query.ilike('first_name', firstNameQuery).ilike('last_name', lastNameQuery);
@@ -41,7 +45,7 @@ async function getProfile(userIdOrUsername) {
 
   const { data, error } = await supabaseAdmin
     .from('user_profiles')
-    .select('id, first_name, last_name, avatar_url, bio, departments, hobbies, master_skills, user_type, is_profile_complete, created_at')
+    .select('id, username, first_name, last_name, avatar_url, bio, departments, hobbies, master_skills, user_type, is_profile_complete, created_at')
     .eq('id', userIdOrUsername)
     .maybeSingle();
 
@@ -53,7 +57,11 @@ async function getProfile(userIdOrUsername) {
 async function resolveUserId(userIdOrUsername) {
   if (!userIdOrUsername) return null;
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  if (uuidRegex.test(userIdOrUsername)) {
+  const isNumeric = /^\d+$/.test(userIdOrUsername);
+  const isSequential = /^user[\s-]?\d+$/i.test(userIdOrUsername);
+  const isAresId = /^00000000-0000-0000-0000-00000000000[a-z0-9]$/i.test(userIdOrUsername);
+
+  if (uuidRegex.test(userIdOrUsername) || isNumeric || isSequential || isAresId) {
     return userIdOrUsername;
   }
   try {
@@ -98,7 +106,7 @@ async function updateProfile(userId, updates) {
     .from('user_profiles')
     .update(updateData)
     .eq('id', userId)
-    .select('id, first_name, last_name, avatar_url, bio, departments, hobbies, master_skills, is_profile_complete')
+    .select('id, username, first_name, last_name, avatar_url, bio, departments, hobbies, master_skills, is_profile_complete')
     .single();
 
   if (error) {
@@ -115,7 +123,7 @@ async function updateDemographics(userId, updates) {
     .from('user_profiles')
     .update({ ...updates, updated_at: new Date().toISOString() })
     .eq('id', userId)
-    .select('id, first_name, last_name, country, city, profession, user_type')
+    .select('id, username, first_name, last_name, country, city, profession, user_type')
     .single();
 
   if (error) throw new BadRequestError('Failed to update demographics');

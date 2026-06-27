@@ -10,8 +10,9 @@ const { authLimiter } = require('../../config/rateLimit');
 const router = Router();
 
 // ─── Public auth endpoints (no JWT required) ───
-router.post('/register',   authLimiter, AuthController.register);
-router.post('/login',      authLimiter, AuthController.login);
+router.post('/register',       authLimiter, AuthController.register);
+router.post('/login',          authLimiter, AuthController.login);
+router.get('/check-username',  authLimiter, AuthController.checkUsername);
 
 // ─── Authenticated endpoints ───
 router.post('/refresh',    authLimiter, validate(refreshTokenSchema), AuthController.refresh);

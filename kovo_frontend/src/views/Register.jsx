@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
 import Icon from '../components/Icon';
 import { validateEmail, validatePassword } from '../utils/helpers';
+import { authApi } from '../api/auth.js';
 
 const stats = [
   { icon: 'lucide:users', value: '12,400+', label: 'Active Members' },
@@ -10,11 +11,27 @@ const stats = [
   { icon: 'lucide:globe', value: '58+', label: 'Countries' },
 ];
 
+const DEGREE_LIST = [
+  'Computer Science', 'Software Engineering', 'Data Science', 'Artificial Intelligence',
+  'Information Technology', 'Cybersecurity', 'Electrical Engineering', 'Mechanical Engineering',
+  'Civil Engineering', 'Chemical Engineering', 'Biomedical Engineering', 'Aerospace Engineering',
+  'Environmental Engineering', 'Industrial Engineering', 'Business Administration', 'Finance',
+  'Accounting', 'Marketing', 'Economics', 'Management', 'Entrepreneurship',
+  'Medicine', 'Nursing', 'Pharmacy', 'Dentistry', 'Public Health',
+  'Psychology', 'Sociology', 'Political Science', 'International Relations',
+  'Law', 'Journalism', 'Mass Communication', 'Graphic Design', 'Architecture',
+  'Mathematics', 'Physics', 'Chemistry', 'Biology', 'Statistics',
+  'Education', 'English Literature', 'History', 'Philosophy', 'Fine Arts',
+  'Music', 'Film Studies', 'Linguistics', 'Anthropology', 'Geography',
+  'Agricultural Science', 'Food Technology', 'Veterinary Science', 'Biotechnology',
+  'Robotics', 'Mechatronics', 'Telecommunications', 'Other',
+];
+
 export default function Register() {
   const { navigate, showToast, register } = useApp();
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({
-    email: '', password: '', confirmPassword: '',
+    email: '', password: '', confirmPassword: '', username: '',
     firstName: '', lastName: '', dob: '',
     country: '', city: '', profession: '',
     userType: 'student', acceptTerms: false,
@@ -23,6 +40,50 @@ export default function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Username availability state
+  const [usernameStatus, setUsernameStatus] = useState(null); // null | 'checking' | 'available' | 'taken' | 'invalid'
+  const usernameTimerRef = useRef(null);
+
+  // Profession dropdown state
+  const [professionOpen, setProfessionOpen] = useState(false);
+  const [professionSearch, setProfessionSearch] = useState('');
+  const professionDropdownRef = useRef(null);
+
+  // Close profession dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (professionDropdownRef.current && !professionDropdownRef.current.contains(e.target)) {
+        setProfessionOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Debounced username availability check
+  const checkUsernameAvailability = useCallback((username) => {
+    if (usernameTimerRef.current) clearTimeout(usernameTimerRef.current);
+
+    if (!username || username.length < 3) {
+      setUsernameStatus(username ? 'invalid' : null);
+      return;
+    }
+    if (!/^[a-zA-Z0-9._]+$/.test(username)) {
+      setUsernameStatus('invalid');
+      return;
+    }
+
+    setUsernameStatus('checking');
+    usernameTimerRef.current = setTimeout(async () => {
+      try {
+        const result = await authApi.checkUsername(username);
+        setUsernameStatus(result.available ? 'available' : 'taken');
+      } catch {
+        setUsernameStatus('invalid');
+      }
+    }, 500);
+  }, []);
 
   const steps = [
     { n: 1, label: 'Credentials' },
@@ -37,6 +98,17 @@ export default function Register() {
     if (step === 1) {
       if (!form.email) newErrors.email = 'Email is required.';
       else if (!validateEmail(form.email)) newErrors.email = 'Enter a valid email.';
+      if (!form.username) {
+        newErrors.username = 'Username is required.';
+      } else if (form.username.length < 3) {
+        newErrors.username = 'Username must be at least 3 characters.';
+      } else if (!/^[a-zA-Z0-9._]+$/.test(form.username)) {
+        newErrors.username = 'Only letters, numbers, dots, and underscores allowed.';
+      } else if (usernameStatus === 'taken') {
+        newErrors.username = 'This username is already taken.';
+      } else if (usernameStatus === 'checking') {
+        newErrors.username = 'Please wait while we check username availability.';
+      }
       if (!form.password) {
         newErrors.password = 'Password is required.';
       } else if (form.password.length < 8) {
@@ -213,6 +285,47 @@ export default function Register() {
                     <p className={`error-text ${errors.email ? 'visible' : ''}`}>{errors.email}</p>
                   </div>
                   <div style={{ marginBottom: '1rem' }}>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '5px' }} htmlFor="reg-username">Username</label>
+                    <div style={{ position: 'relative' }}>
+                      <input id="reg-username" type="text" className={`input-field ${errors.username ? 'error' : ''}`} placeholder="e.g. john_doe"
+                        value={form.username} onChange={e => {
+                          const val = e.target.value.toLowerCase().replace(/[^a-z0-9._]/g, '');
+                          field('username', val);
+                          clearErr('username');
+                          checkUsernameAvailability(val);
+                        }} autoComplete="username" required maxLength={30} />
+                      {usernameStatus && form.username.length >= 3 && (
+                        <div style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center' }}>
+                          {usernameStatus === 'checking' && (
+                            <div className="spinner-sm" style={{ width: '16px', height: '16px', borderWidth: '2px' }} />
+                          )}
+                          {usernameStatus === 'available' && (
+                            <Icon icon="lucide:check-circle" style={{ fontSize: '1.1rem', color: '#10B981' }} />
+                          )}
+                          {usernameStatus === 'taken' && (
+                            <Icon icon="lucide:x-circle" style={{ fontSize: '1.1rem', color: '#EF4444' }} />
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    {usernameStatus === 'available' && form.username.length >= 3 && (
+                      <p style={{ fontSize: '0.75rem', color: '#10B981', fontWeight: 600, marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Icon icon="lucide:check" style={{ fontSize: '0.7rem' }} /> Username is available
+                      </p>
+                    )}
+                    {usernameStatus === 'taken' && (
+                      <p style={{ fontSize: '0.75rem', color: '#EF4444', fontWeight: 600, marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Icon icon="lucide:x" style={{ fontSize: '0.7rem' }} /> Username is already taken
+                      </p>
+                    )}
+                    {usernameStatus === 'invalid' && form.username && (
+                      <p style={{ fontSize: '0.75rem', color: '#F59E0B', fontWeight: 600, marginTop: '4px' }}>
+                        Min 3 characters. Only letters, numbers, dots, and underscores.
+                      </p>
+                    )}
+                    <p className={`error-text ${errors.username ? 'visible' : ''}`}>{errors.username}</p>
+                  </div>
+                  <div style={{ marginBottom: '1rem' }}>
                     <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '5px' }} htmlFor="reg-pass">Password</label>
                     <div style={{ position: 'relative' }}>
                       <input id="reg-pass" type={showPassword ? 'text' : 'password'} className={`input-field ${errors.password ? 'error' : ''}`} placeholder="Min 8 characters"
@@ -287,10 +400,78 @@ export default function Register() {
                       <p className={`error-text ${errors.city ? 'visible' : ''}`}>{errors.city}</p>
                     </div>
                   </div>
-                  <div style={{ marginBottom: '0.875rem' }}>
+                  <div style={{ marginBottom: '0.875rem', position: 'relative' }} ref={professionDropdownRef}>
                     <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '5px' }} htmlFor="reg-prof">Profession / Field</label>
-                    <input id="reg-prof" type="text" className={`input-field ${errors.profession ? 'error' : ''}`} placeholder="e.g. Computer Science"
-                      value={form.profession} onChange={e => { field('profession', e.target.value); clearErr('profession'); }} required />
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        id="reg-prof"
+                        type="text"
+                        className={`input-field ${errors.profession ? 'error' : ''}`}
+                        placeholder="Search or select your field..."
+                        value={professionOpen ? professionSearch : form.profession}
+                        onChange={e => {
+                          setProfessionSearch(e.target.value);
+                          if (!professionOpen) setProfessionOpen(true);
+                        }}
+                        onFocus={() => {
+                          setProfessionOpen(true);
+                          setProfessionSearch('');
+                        }}
+                        autoComplete="off"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setProfessionOpen(!professionOpen)}
+                        style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}
+                        aria-label="Toggle dropdown"
+                        tabIndex={-1}
+                      >
+                        <Icon icon={professionOpen ? 'lucide:chevron-up' : 'lucide:chevron-down'} style={{ fontSize: '1rem' }} />
+                      </button>
+                    </div>
+                    {professionOpen && (
+                      <div style={{
+                        position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
+                        background: 'var(--bg-primary)', border: '1px solid var(--border-color)',
+                        borderRadius: '10px', marginTop: '4px', maxHeight: '200px', overflowY: 'auto',
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                      }}>
+                        {DEGREE_LIST
+                          .filter(d => d.toLowerCase().includes(professionSearch.toLowerCase()))
+                          .map(degree => (
+                            <button
+                              key={degree}
+                              type="button"
+                              onClick={() => {
+                                field('profession', degree);
+                                clearErr('profession');
+                                setProfessionOpen(false);
+                                setProfessionSearch('');
+                              }}
+                              style={{
+                                display: 'block', width: '100%', textAlign: 'left',
+                                padding: '0.55rem 0.875rem', fontSize: '0.8125rem',
+                                background: form.profession === degree ? 'rgba(15,118,110,0.08)' : 'transparent',
+                                color: form.profession === degree ? 'var(--accent-purple)' : 'var(--text-secondary)',
+                                fontWeight: form.profession === degree ? 600 : 400,
+                                border: 'none', cursor: 'pointer', transition: 'background 0.15s',
+                                fontFamily: 'inherit',
+                              }}
+                              onMouseEnter={e => e.target.style.background = 'rgba(15,118,110,0.06)'}
+                              onMouseLeave={e => e.target.style.background = form.profession === degree ? 'rgba(15,118,110,0.08)' : 'transparent'}
+                            >
+                              {degree}
+                            </button>
+                          ))
+                        }
+                        {DEGREE_LIST.filter(d => d.toLowerCase().includes(professionSearch.toLowerCase())).length === 0 && (
+                          <div style={{ padding: '0.75rem', fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+                            No matches found
+                          </div>
+                        )}
+                      </div>
+                    )}
                     <p className={`error-text ${errors.profession ? 'visible' : ''}`}>{errors.profession}</p>
                   </div>
                   <div style={{ marginBottom: '1.25rem' }}>

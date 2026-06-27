@@ -22,6 +22,7 @@ export const authApi = {
   /** Create user profile (step 2 after register) */
   async onboard(data) {
     const res = await api.post('/auth/onboard', {
+      username: data.username,
       first_name: data.firstName,
       last_name: data.lastName,
       date_of_birth: data.dob,
@@ -30,6 +31,12 @@ export const authApi = {
       profession: data.profession,
       user_type: data.userType,
     });
+    return res.data;
+  },
+
+  /** Check if a username is available */
+  async checkUsername(username) {
+    const res = await api.get(`/auth/check-username?username=${encodeURIComponent(username)}`);
     return res.data;
   },
 

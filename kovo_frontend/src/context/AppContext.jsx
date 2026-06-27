@@ -91,11 +91,11 @@ function normaliseNotification(n) {
 function buildUser(authUser, profile) {
   const firstName = profile?.first_name || '';
   const lastName  = profile?.last_name  || '';
-  const rawUsername = `${firstName}.${lastName}`.toLowerCase().replace(/\s+/g, '') || authUser?.email?.split('@')[0] || 'user';
+  const autoUsername = `${firstName}.${lastName}`.toLowerCase().replace(/\s+/g, '') || authUser?.email?.split('@')[0] || 'user';
   return {
     id: authUser?.id || profile?.id || '',
     email: authUser?.email || profile?.email || '',
-    username: rawUsername,
+    username: profile?.username || autoUsername,
     firstName,
     lastName,
     department: profile?.profession || profile?.department || '',
@@ -105,7 +105,9 @@ function buildUser(authUser, profile) {
     bio: profile?.bio || '',
     type: profile?.user_type || 'student',
     points: profile?.points || 0,
-    skills: profile?.skills || [],
+    skills: profile?.master_skills || profile?.skills || [],
+    departments: profile?.departments || [],
+    hobbies: profile?.hobbies || [],
     avatar_url: profile?.avatar_url || null,
     profileComplete: profile?.is_profile_complete || false,
     tosAccepted: profile?.tos_accepted || false,
@@ -689,13 +691,15 @@ export function AppProvider({ children }) {
 
   const sendConnectionRequest = useCallback(async (targetUserId) => {
     try {
-      await connectionsApi.sendRequest(targetUserId);
+      const result = await connectionsApi.sendRequest(targetUserId);
       showToast('Connection request sent!', 'success');
       await loadConnectionsList();
       await loadPendingConnections();
       await fetchConnectionCount(targetUserId);
+      return result;
     } catch (err) {
       showToast(err.message || 'Failed to send request', 'error');
+      throw err;
     }
   }, [showToast, loadConnectionsList, loadPendingConnections, fetchConnectionCount]);
 
