@@ -175,31 +175,21 @@ export default function PostCard({ post }) {
           <Icon icon="lucide:share-2" style={{ fontSize: '1rem' }} />
         </button>
 
-        {/* Helpful / Not-Helpful */}
+        {/* Helpful vote button */}
         {(() => {
-          const { helpfulCount, notCount, myVote } = getVoteCounts(post.id);
+          const { helpfulCount, myVote } = getVoteCounts(post.id);
           return (
-            <>
-              <button
-                className={`engage-btn${myVote === 'helpful' ? ' helpful' : ''}`}
-                onClick={() => voteHelpful(post.id, 'helpful')}
-                aria-label="Mark post as helpful"
-                aria-pressed={myVote === 'helpful'}
-                style={{ marginLeft: '2px' }}
-              >
-                <Icon icon="lucide:thumbs-up" style={{ fontSize: '1rem', fill: myVote === 'helpful' ? 'var(--success)' : 'none' }} />
-                <span>{helpfulCount > 0 ? helpfulCount : ''}</span>
-              </button>
-              <button
-                className={`engage-btn${myVote === 'not' ? ' not-helpful' : ''}`}
-                onClick={() => voteHelpful(post.id, 'not')}
-                aria-label="Mark post as not helpful"
-                aria-pressed={myVote === 'not'}
-              >
-                <Icon icon="lucide:thumbs-down" style={{ fontSize: '1rem', fill: myVote === 'not' ? 'var(--error)' : 'none' }} />
-                <span>{notCount > 0 ? notCount : ''}</span>
-              </button>
-            </>
+            <button
+              className={`engage-btn${myVote === 'helpful' ? ' helpful' : ''}`}
+              onClick={() => voteHelpful(post.id, 'helpful')}
+              aria-label="Mark post as helpful"
+              aria-pressed={myVote === 'helpful'}
+              style={{ marginLeft: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}
+            >
+              <Icon icon="lucide:check-circle" style={{ fontSize: '1rem', fill: myVote === 'helpful' ? 'var(--success)' : 'none' }} />
+              <span style={{ fontWeight: 600 }}>Helpful</span>
+              {helpfulCount > 0 && <span style={{ opacity: 0.85 }}>({helpfulCount})</span>}
+            </button>
           );
         })()}
 

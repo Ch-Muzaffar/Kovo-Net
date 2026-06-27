@@ -3,7 +3,7 @@ import { useApp } from '../context/AppContext';
 import Icon from '../components/Icon';
 
 export default function Landing() {
-  const { navigate } = useApp();
+  const { navigate, darkMode, toggleDarkMode } = useApp();
 
   return (
     <div className="min-h-screen relative overflow-hidden">
@@ -12,7 +12,7 @@ export default function Landing() {
       <div className="gradient-orb" style={{ width: '300px', height: '300px', background: 'radial-gradient(circle,rgba(6,182,212,0.15),transparent)', top: '40%', right: '10%' }}></div>
 
       {/* Nav */}
-      <nav className="fixed top-0 left-0 right-0 z-50 h-20 flex items-center px-6 lg:px-10" style={{ background: 'rgba(255,255,255,0.7)', backdropFilter: 'blur(16px)' }}>
+      <nav className="fixed top-0 left-0 right-0 z-50 h-20 flex items-center px-6 lg:px-10" style={{ background: 'var(--bg-glass-nav)', borderBottom: '1px solid var(--border-color)', backdropFilter: 'blur(16px)' }}>
         <div className="max-w-7xl mx-auto w-full flex items-center justify-between">
           <div className="flex items-center gap-2.5" style={{ cursor: 'pointer' }} onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
             <div className="w-9 h-9 rounded-lg flex items-center justify-center font-display font-extrabold text-white text-sm" style={{ background: 'var(--gradient-btn)' }}>KO</div>
@@ -24,6 +24,13 @@ export default function Landing() {
             <a href="#community" className="px-4 py-2 rounded-full text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-white/50 transition-all">Community</a>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              onClick={toggleDarkMode}
+              aria-label="Toggle Theme"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', borderRadius: '8px', padding: '8px', display: 'flex', alignItems: 'center', color: 'var(--text-secondary)' }}
+            >
+              <Icon icon={darkMode ? 'lucide:sun' : 'lucide:moon'} style={{ fontSize: '1.2rem' }} />
+            </button>
             <button className="btn-glass-secondary px-5 py-2 text-sm" onClick={() => navigate('login')}>Sign In</button>
             <button className="btn-glass-primary px-5 py-2.5 text-sm" onClick={() => navigate('register')}>Get Started</button>
           </div>

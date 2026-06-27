@@ -135,6 +135,39 @@ describe('Mock Database Extension and Query Builder', () => {
     expect(result.data[0].id).toBe('p1');
   });
 
+  test('should support the ilike operator and nested OR ilike', async () => {
+    tables.user_profiles = [
+      { id: 'u1', first_name: 'Alice', last_name: 'Smith' },
+      { id: 'u2', first_name: 'Bob', last_name: 'Jones' },
+      { id: 'u3', first_name: 'Charlie', last_name: 'Brown' },
+    ];
+
+    // Simple ilike case-insensitive
+    const r1 = await mockSupabaseAdmin
+      .from('user_profiles')
+      .select()
+      .ilike('first_name', 'alice');
+    expect(r1.data).toHaveLength(1);
+    expect(r1.data[0].id).toBe('u1');
+
+    // Simple ilike with wildcard %
+    const r2 = await mockSupabaseAdmin
+      .from('user_profiles')
+      .select()
+      .ilike('last_name', '%one%');
+    expect(r2.data).toHaveLength(1);
+    expect(r2.data[0].id).toBe('u2'); // Jones contains 'one'
+
+    // Nested or ilike
+    const r3 = await mockSupabaseAdmin
+      .from('user_profiles')
+      .select()
+      .or('first_name.ilike.bob,last_name.ilike.smith');
+    expect(r3.data).toHaveLength(2);
+    expect(r3.data.map(u => u.id)).toContain('u1'); // Smith
+    expect(r3.data.map(u => u.id)).toContain('u2'); // Bob
+  });
+
   test('should support the increment_points RPC', async () => {
     tables.user_points = [
       { id: 'up1', user_id: 'user-1', total_points: 80, level: 1 }

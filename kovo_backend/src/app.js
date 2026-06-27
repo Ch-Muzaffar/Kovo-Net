@@ -22,6 +22,7 @@ const reportRoutes       = require('./modules/reports/reports.routes');
 const notificationRoutes = require('./modules/notifications/notifications.routes');
 const uploadRoutes       = require('./modules/uploads/uploads.routes');
 const adminRoutes        = require('./modules/admin/admin.routes');
+const connectionRoutes   = require('./modules/connections/connections.routes');
 
 const app = express();
 
@@ -71,6 +72,7 @@ apiRouter.use('/reports',       reportRoutes);
 apiRouter.use('/notifications', notificationRoutes);
 apiRouter.use('/uploads',       uploadRoutes);
 apiRouter.use('/admin',         adminRoutes);
+apiRouter.use('/connections',   connectionRoutes);
 
 app.use(env.API_PREFIX, apiRouter);
 

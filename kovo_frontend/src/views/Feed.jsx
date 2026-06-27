@@ -7,6 +7,7 @@ import Icon from '../components/Icon';
 import { getAvatarGradient, getInitials, getLevelInfo, timeAgo } from '../utils/helpers';
 import { usersApi } from '../api/users.js';
 import { postsApi } from '../api/posts.js';
+import { connectionsApi } from '../api/connections.js';
 import { api } from '../api/client.js';
 
 export default function Feed() {
@@ -41,7 +42,14 @@ export default function Feed() {
     showToast,
     bookmarkedPosts,
     deleteAccount,
-    uploadFileToCloudinary
+    uploadFileToCloudinary,
+    darkMode,
+    toggleDarkMode,
+    connectionCounts,
+    sendConnectionRequest,
+    respondToConnection,
+    fetchConnectionCount,
+    pendingConnections
   } = useApp();
 
   // Settings local state
@@ -79,7 +87,8 @@ export default function Feed() {
   const [profileEditing, setProfileEditing] = useState(false);
   const [profileEditForm, setProfileEditForm] = useState({ firstName: '', lastName: '', bio: '', department: '', skills: '' });
   const [profileEditSaving, setProfileEditSaving] = useState(false);
-
+  const [profileConnectionStatus, setProfileConnectionStatus] = useState('none');
+  const [profileConnectionId, setProfileConnectionId] = useState(null);
   // Mobile search toggle state
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 
@@ -277,9 +286,27 @@ export default function Feed() {
           is_hidden: p.is_hidden || false,
         }));
 
+        // Load connection status and count
+        await fetchConnectionCount(activeUserId);
+        let connStatus = 'none';
+        let connId = null;
+        if (activeUserId !== user?.id) {
+          try {
+            const statusRes = await connectionsApi.getStatus(activeUserId);
+            connStatus = statusRes.data?.status || 'none';
+            connId = statusRes.data?.connectionId || null;
+          } catch (cErr) {
+            console.error('Failed to load connection status', cErr);
+          }
+        } else {
+          connStatus = 'self';
+        }
+
         if (isMounted) {
           setProfileUser(profileData);
           setProfilePosts(normalizedUserPosts);
+          setProfileConnectionStatus(connStatus);
+          setProfileConnectionId(connId);
         }
       } catch (err) {
         if (isMounted) {
@@ -297,7 +324,7 @@ export default function Feed() {
     return () => {
       isMounted = false;
     };
-  }, [view, profileViewUserId, user, showToast]);
+  }, [view, profileViewUserId, user, fetchConnectionCount, showToast]);
 
   const unreadNotifsCount = notifications.filter(n => !n.read).length;
 
@@ -323,8 +350,7 @@ export default function Feed() {
             width: '100%',
             position: 'sticky',
           }}
-        >
-          <div className="feed-header-inner" style={{ display: 'flex', alignItems: 'center', padding: '0 1rem', minHeight: '60px', gap: '8px' }}>
+        >          <div className="feed-header-inner" style={{ display: 'flex', alignItems: 'center', padding: '0 1rem', minHeight: '60px', gap: '8px', position: 'relative' }}>
 
             {/* LEFT BRAND — KOVO NETWORKS */}
             <div className="feed-header-brand" style={{ display: 'flex', alignItems: 'center', gap: '9px', flexShrink: 0 }}>
@@ -338,42 +364,44 @@ export default function Feed() {
               </button>
             </div>
 
-            {/* CENTER SEARCH — desktop & tablet */}
-            <div
-              className="feed-header-search"
-              style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '0 1rem', maxWidth: '560px', margin: '0 auto' }}
-            >
-              <div className="feed-header-search-inner" style={{ width: '100%', position: 'relative' }}>
-                <Icon icon="lucide:search" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '1rem', pointerEvents: 'none', zIndex: 5 }} />
+            {/* CENTER SEARCH CONTAINER — Aligned with feed content */}
+            <div className="feed-header-search-container">
+              <div className="feed-header-search-inner">
+                <Icon icon="lucide:search" style={{ position: 'absolute', left: '26px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '1rem', pointerEvents: 'none', zIndex: 5 }} />
                 <input
                   type="search"
                   style={{
                     paddingLeft: '2.5rem',
                     paddingTop: '.65rem',
                     paddingBottom: '.65rem',
-                    paddingRight: '1rem',
+                    paddingRight: searchQuery ? '2.5rem' : '1rem',
                     fontSize: '.875rem',
                     width: '100%',
                     borderRadius: '9999px',
-                    background: 'rgba(255,255,255,0.55)',
+                    background: 'var(--bg-glass-input)',
                     backdropFilter: 'blur(16px) saturate(180%)',
                     WebkitBackdropFilter: 'blur(16px) saturate(180%)',
-                    border: '1px solid rgba(15,118,110,0.15)',
-                    boxShadow: '0 4px 20px rgba(15,23,42,0.04), inset 0 1px 0 rgba(255,255,255,0.6)',
+                    border: '1px solid var(--border-color)',
                     color: 'var(--text-primary)',
                     outline: 'none',
                     transition: 'all 0.3s ease'
                   }}
-                  placeholder="Search posts, people, @username..."
+                  placeholder="Search posts, people, tags, @username..."
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   aria-label="Search"
                 />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    style={{ position: 'absolute', right: '26px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}
+                    aria-label="Clear search"
+                  >
+                    <Icon icon="lucide:x" style={{ fontSize: '1rem' }} />
+                  </button>
+                )}
               </div>
             </div>
-
-            {/* Spacer pushes right group to edge */}
-            <div style={{ flex: 1 }} />
 
             {/* RIGHT GROUP */}
             <div className="feed-header-right" style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
@@ -386,6 +414,14 @@ export default function Feed() {
                 style={{ background: 'none', border: 'none', cursor: 'pointer', borderRadius: '8px', padding: '8px', display: 'none', alignItems: 'center', color: 'var(--text-secondary)' }}
               >
                 <Icon icon={mobileSearchOpen ? 'lucide:x' : 'lucide:search'} style={{ fontSize: '1.2rem' }} />
+              </button>
+
+              <button
+                onClick={toggleDarkMode}
+                aria-label="Toggle Theme"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', borderRadius: '8px', padding: '8px', display: 'flex', alignItems: 'center', color: 'var(--text-secondary)' }}
+              >
+                <Icon icon={darkMode ? 'lucide:sun' : 'lucide:moon'} style={{ fontSize: '1.2rem' }} />
               </button>
 
               <button
@@ -417,8 +453,8 @@ export default function Feed() {
 
           {/* Mobile slide-down search bar */}
           {mobileSearchOpen && (
-            <div style={{ padding: '0.5rem 1rem 0.75rem', borderTop: '1px solid rgba(15,23,42,0.06)', background: 'rgba(248,250,252,0.95)' }}>
-              <div style={{ position: 'relative' }}>
+            <div className="feed-header-search mobile-visible">
+              <div style={{ position: 'relative', width: '100%' }}>
                 <Icon icon="lucide:search" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '1rem', pointerEvents: 'none', zIndex: 5 }} />
                 <input
                   autoFocus
@@ -431,8 +467,8 @@ export default function Feed() {
                     fontSize: '.875rem',
                     width: '100%',
                     borderRadius: '9999px',
-                    background: 'rgba(255,255,255,0.85)',
-                    border: '1px solid rgba(15,118,110,0.18)',
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--border-color)',
                     color: 'var(--text-primary)',
                     outline: 'none',
                   }}
@@ -648,28 +684,19 @@ export default function Feed() {
                                   <div className="flex items-center gap-2 mt-2" style={{ flexWrap: 'wrap' }}>
                                     {/* Helpful / Not-Helpful vote buttons — visible to all users */}
                                     {(() => {
-                                      const { helpfulCount, notCount, myVote } = getVoteCounts(c.id);
+                                      const { helpfulCount, myVote } = getVoteCounts(c.id);
                                       return (
-                                        <>
-                                          <button
-                                            className={`engage-btn text-xs${myVote === 'helpful' ? ' helpful' : ''}`}
-                                            onClick={() => voteHelpful(c.id, 'helpful')}
-                                            aria-label="Mark comment as helpful"
-                                            aria-pressed={myVote === 'helpful'}
-                                          >
-                                            <Icon icon="lucide:thumbs-up" style={{ fontSize: '0.875rem', fill: myVote === 'helpful' ? 'var(--success)' : 'none' }} />
-                                            {helpfulCount > 0 ? helpfulCount : 'Helpful'}
-                                          </button>
-                                          <button
-                                            className={`engage-btn text-xs${myVote === 'not' ? ' not-helpful' : ''}`}
-                                            onClick={() => voteHelpful(c.id, 'not')}
-                                            aria-label="Mark comment as not helpful"
-                                            aria-pressed={myVote === 'not'}
-                                          >
-                                            <Icon icon="lucide:thumbs-down" style={{ fontSize: '0.875rem', fill: myVote === 'not' ? 'var(--error)' : 'none' }} />
-                                            {notCount > 0 ? notCount : 'Not Helpful'}
-                                          </button>
-                                        </>
+                                        <button
+                                          className={`engage-btn text-xs${myVote === 'helpful' ? ' helpful' : ''}`}
+                                          onClick={() => voteHelpful(c.id, 'helpful')}
+                                          aria-label="Mark comment as helpful"
+                                          aria-pressed={myVote === 'helpful'}
+                                          style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
+                                        >
+                                          <Icon icon="lucide:check-circle" style={{ fontSize: '0.875rem', fill: myVote === 'helpful' ? 'var(--success)' : 'none' }} />
+                                          <span style={{ fontWeight: 600 }}>Helpful</span>
+                                          {helpfulCount > 0 && <span style={{ opacity: 0.85 }}>({helpfulCount})</span>}
+                                        </button>
                                       );
                                     })()}
                                     {canMarkHelpful && (
@@ -901,6 +928,35 @@ export default function Feed() {
                                         </a>
                                       );
                                     }
+                                    if (msg.postId) {
+                                      const sharedPost = posts.find(p => p.id === msg.postId);
+                                      return (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                          <div style={{ fontSize: '0.75rem', fontStyle: 'italic', opacity: 0.85 }}>Shared a post:</div>
+                                          <div 
+                                            onClick={() => navigate('post-detail', { postId: msg.postId })}
+                                            style={{
+                                              background: isMe ? 'rgba(255, 255, 255, 0.15)' : 'rgba(15, 23, 42, 0.05)',
+                                              border: isMe ? '1px solid rgba(255, 255, 255, 0.25)' : '1px solid var(--border-color)',
+                                              borderRadius: '8px',
+                                              padding: '8px 12px',
+                                              cursor: 'pointer',
+                                              color: isMe ? '#fff' : 'var(--text-primary)',
+                                              fontSize: '0.8rem',
+                                              textAlign: 'left'
+                                            }}
+                                          >
+                                            <div style={{ fontWeight: 700, marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                              <Icon icon="lucide:user" style={{ fontSize: '0.8rem' }} />
+                                              <span>{sharedPost ? `${sharedPost.creator?.first_name || ''} ${sharedPost.creator?.last_name || ''}`.trim() || 'Post Author' : 'Post Author'}</span>
+                                            </div>
+                                            <div style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '0.72rem', opacity: 0.9 }}>
+                                              {sharedPost ? sharedPost.content : msg.text}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      );
+                                    }
                                     return msg.text;
                                   })()}
                                   <div style={{ fontSize: '0.6rem', opacity: 0.65, marginTop: '2px', textAlign: isMe ? 'right' : 'left' }}>
@@ -969,6 +1025,55 @@ export default function Feed() {
             {/* VIEW: NOTIFICATIONS */}
             {view === 'notifications' && (
               <div className="page-enter">
+                {/* Connection Requests section */}
+                {pendingConnections.length > 0 && (
+                  <div className="mb-6 card p-4 border border-[var(--border-color)]">
+                    <h3 className="font-display font-bold text-lg text-[var(--text-primary)] mb-3 flex items-center gap-2">
+                      <Icon icon="lucide:user-check" style={{ color: 'var(--accent-purple)' }} />
+                      Connection Requests ({pendingConnections.length})
+                    </h3>
+                    <div className="space-y-3">
+                      {pendingConnections.map(req => {
+                        const sender = req.sender || {};
+                        const name = `${sender.first_name || ''} ${sender.last_name || ''}`.trim() || 'Someone';
+                        const initials = ((sender.first_name?.[0] || '') + (sender.last_name?.[0] || '')).toUpperCase();
+                        const avatarColor = `linear-gradient(135deg, var(--accent-purple), var(--accent-blue))`;
+
+                        return (
+                          <div key={req.id} className="flex items-center justify-between p-3 rounded-lg bg-[rgba(15,23,42,0.02)] border border-[var(--border-color)]">
+                            <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('profile', { userId: sender.id })}>
+                              <div 
+                                className="avatar avatar-sm flex items-center justify-center text-white font-bold"
+                                style={{ background: avatarColor, width: '36px', height: '36px', borderRadius: '50%', fontSize: '0.85rem' }}
+                              >
+                                {initials || 'U'}
+                              </div>
+                              <div>
+                                <div className="text-sm font-semibold text-[var(--text-primary)] hover:underline">{name}</div>
+                                <div className="text-xs text-[var(--text-muted)]">{sender.profession || 'Network Member'}</div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button 
+                                className="btn-gradient px-3 py-1.5 text-xs flex items-center gap-1"
+                                onClick={() => respondToConnection(req.id, 'accept')}
+                              >
+                                <Icon icon="lucide:check" /> Accept
+                              </button>
+                              <button 
+                                className="btn-secondary px-3 py-1.5 text-xs flex items-center gap-1"
+                                onClick={() => respondToConnection(req.id, 'reject')}
+                              >
+                                <Icon icon="lucide:x" /> Decline
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="font-display font-bold text-2xl text-[var(--text-primary)]">Notifications</h2>
                   {notifications.some(n => !n.read) && (
@@ -1181,25 +1286,107 @@ export default function Feed() {
                             <span className="text-[var(--text-muted)]"><strong className="text-[var(--text-primary)]">{userPosts.length}</strong> Posts</span>
                             <span className="text-[var(--text-muted)]"><strong className="text-[var(--text-primary)]">{u.points}</strong> Points</span>
                             <span className="text-[var(--text-muted)]"><strong className="text-[var(--text-primary)]">{lvl.name}</strong> Level</span>
+                            <span className="text-[var(--text-muted)]">
+                              <strong className="text-[var(--text-primary)]">
+                                {connectionCounts[u.id] !== undefined ? connectionCounts[u.id] : 0}
+                              </strong> Connections
+                            </span>
                           </div>
 
-                          {/* Message button — only for other users */}
+                          {/* Connection controls — only for other users */}
                           {!isOwn && (
-                            <div style={{ marginTop: '0.75rem' }}>
-                              <button
-                                className="btn-gradient px-5 py-2 text-sm flex items-center gap-2"
-                                style={{ borderRadius: '9999px' }}
-                                onClick={() => startDm({
-                                  id: u.id,
-                                  username: u.username,
-                                  firstName: u.firstName,
-                                  lastName: u.lastName,
-                                  department: u.department || '',
-                                })}
-                              >
-                                <Icon icon="lucide:message-circle" style={{ fontSize: '0.9rem' }} />
-                                {dmConversations.some(c => c.participantId === u.id) ? 'Continue Chat' : 'Message'}
-                              </button>
+                            <div className="flex flex-wrap items-center gap-3" style={{ marginTop: '0.75rem' }}>
+                              {profileConnectionStatus === 'none' && (
+                                <button
+                                  className="btn-gradient px-5 py-2 text-sm flex items-center gap-2"
+                                  style={{ borderRadius: '9999px' }}
+                                  onClick={async () => {
+                                    await sendConnectionRequest(u.id);
+                                    setProfileConnectionStatus('pending_sent');
+                                  }}
+                                >
+                                  <Icon icon="lucide:user-plus" style={{ fontSize: '0.9rem' }} />
+                                  Add Friend
+                                </button>
+                              )}
+
+                              {profileConnectionStatus === 'pending_sent' && (
+                                <button
+                                  className="btn-secondary px-5 py-2 text-sm flex items-center gap-2"
+                                  style={{ borderRadius: '9999px', cursor: 'not-allowed', opacity: 0.8 }}
+                                  disabled
+                                >
+                                  <Icon icon="lucide:clock" style={{ fontSize: '0.9rem' }} />
+                                  Pending Request
+                                </button>
+                              )}
+
+                              {profileConnectionStatus === 'pending_received' && (
+                                <>
+                                  <button
+                                    className="btn-gradient px-4 py-2 text-sm flex items-center gap-2"
+                                    style={{ borderRadius: '9999px' }}
+                                    onClick={async () => {
+                                      await respondToConnection(profileConnectionId, 'accept');
+                                      setProfileConnectionStatus('connected');
+                                      fetchConnectionCount(u.id);
+                                    }}
+                                  >
+                                    <Icon icon="lucide:user-check" style={{ fontSize: '0.9rem' }} />
+                                    Accept Request
+                                  </button>
+                                  <button
+                                    className="btn-secondary px-4 py-2 text-sm flex items-center gap-2"
+                                    style={{ borderRadius: '9999px' }}
+                                    onClick={async () => {
+                                      await respondToConnection(profileConnectionId, 'reject');
+                                      setProfileConnectionStatus('rejected');
+                                    }}
+                                  >
+                                    <Icon icon="lucide:user-x" style={{ fontSize: '0.9rem' }} />
+                                    Ignore
+                                  </button>
+                                </>
+                              )}
+
+                              {profileConnectionStatus === 'connected' && (
+                                <>
+                                  <button
+                                    className="btn-secondary px-4 py-2 text-sm flex items-center gap-2"
+                                    style={{ borderRadius: '9999px', border: '1px solid var(--success)', color: 'var(--success)', cursor: 'default' }}
+                                    disabled
+                                  >
+                                    <Icon icon="lucide:check-circle" style={{ fontSize: '0.9rem', color: 'var(--success)' }} />
+                                    Connected
+                                  </button>
+                                  <button
+                                    className="btn-gradient px-5 py-2 text-sm flex items-center gap-2"
+                                    style={{ borderRadius: '9999px' }}
+                                    onClick={() => startDm({
+                                      id: u.id,
+                                      username: u.username,
+                                      firstName: u.firstName,
+                                      lastName: u.lastName,
+                                      department: u.department || '',
+                                    })}
+                                  >
+                                    <Icon icon="lucide:message-circle" style={{ fontSize: '0.9rem' }} />
+                                    {dmConversations.some(c => c.participantId === u.id) ? 'Continue Chat' : 'Message'}
+                                  </button>
+                                </>
+                              )}
+
+                              {(profileConnectionStatus === 'none' || profileConnectionStatus === 'pending_sent' || profileConnectionStatus === 'pending_received' || profileConnectionStatus === 'rejected') && (
+                                <button
+                                  className="btn-secondary px-5 py-2 text-sm flex items-center gap-2"
+                                  style={{ borderRadius: '9999px', opacity: 0.6, cursor: 'not-allowed' }}
+                                  disabled
+                                  title="You must be mutually connected to message each other"
+                                >
+                                  <Icon icon="lucide:message-square-off" style={{ fontSize: '0.9rem' }} />
+                                  Connect to Message
+                                </button>
+                              )}
                             </div>
                           )}
 

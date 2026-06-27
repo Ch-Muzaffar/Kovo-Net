@@ -8,20 +8,60 @@ const logger = require('../../utils/logger');
 const PROFILE_CACHE_PREFIX = 'profile:';
 const POINTS_CACHE_PREFIX = 'points:';
 
-async function getProfile(userId) {
-  const cacheKey = `${PROFILE_CACHE_PREFIX}${userId}`;
+async function getProfile(userIdOrUsername) {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  if (!uuidRegex.test(userIdOrUsername)) {
+    // Treat as username (e.g. bob.jones or @bob.jones)
+    const cleanUsername = userIdOrUsername.replace(/^@/, '').toLowerCase().trim();
+    const parts = cleanUsername.split('.');
+    const firstNameQuery = parts[0];
+    const lastNameQuery = parts.slice(1).join('.');
+
+    let query = supabaseAdmin
+      .from('user_profiles')
+      .select('id, first_name, last_name, avatar_url, bio, departments, hobbies, master_skills, user_type, is_profile_complete, created_at');
+
+    if (firstNameQuery && lastNameQuery) {
+      query = query.ilike('first_name', firstNameQuery).ilike('last_name', lastNameQuery);
+    } else {
+      query = query.or(`first_name.ilike.${cleanUsername},last_name.ilike.${cleanUsername}`);
+    }
+
+    const { data: matchedProfiles, error: matchError } = await query;
+    if (matchError || !matchedProfiles || matchedProfiles.length === 0) {
+      throw new NotFoundError('User profile not found');
+    }
+    return matchedProfiles[0];
+  }
+
+  const cacheKey = `${PROFILE_CACHE_PREFIX}${userIdOrUsername}`;
   const cached = cache.get(cacheKey);
   if (cached) return cached;
 
   const { data, error } = await supabaseAdmin
     .from('user_profiles')
     .select('id, first_name, last_name, avatar_url, bio, departments, hobbies, master_skills, user_type, is_profile_complete, created_at')
-    .eq('id', userId)
+    .eq('id', userIdOrUsername)
     .maybeSingle();
 
   if (error || !data) throw new NotFoundError('User profile not found');
   cache.set(cacheKey, data);
   return data;
+}
+
+async function resolveUserId(userIdOrUsername) {
+  if (!userIdOrUsername) return null;
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (uuidRegex.test(userIdOrUsername)) {
+    return userIdOrUsername;
+  }
+  try {
+    const profile = await getProfile(userIdOrUsername);
+    return profile.id;
+  } catch (err) {
+    return null;
+  }
 }
 
 async function updateProfile(userId, updates) {
@@ -140,4 +180,4 @@ async function deactivateUser(userId) {
   return { success: true };
 }
 
-module.exports = { getProfile, updateProfile, updateDemographics, getPoints, getLedgerHistory, deactivateUser };
+module.exports = { getProfile, updateProfile, updateDemographics, getPoints, getLedgerHistory, deactivateUser, resolveUserId };

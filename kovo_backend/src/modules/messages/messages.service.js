@@ -17,6 +17,17 @@ async function sendMessage(senderId, data) {
   if (!receiver) throw new NotFoundError('Recipient not found');
   if (receiver.banned) throw new BadRequestError('Cannot message this user');
 
+  // Verify that both users are connected
+  const { data: connection } = await supabaseAdmin
+    .from('connections')
+    .select('status')
+    .or(`and(sender_id.eq.${senderId},receiver_id.eq.${data.receiver_id}),and(sender_id.eq.${data.receiver_id},receiver_id.eq.${senderId})`)
+    .maybeSingle();
+
+  if (!connection || connection.status !== 'accepted') {
+    throw new BadRequestError('You can only message users you are connected with.');
+  }
+
   if (data.post_id) {
     const { data: post } = await supabaseAdmin
       .from('posts')

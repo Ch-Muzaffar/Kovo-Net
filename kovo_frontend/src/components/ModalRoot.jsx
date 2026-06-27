@@ -18,7 +18,9 @@ export default function ModalRoot() {
     toggleLike, 
     showToast,
     reportedContent,
-    reportContent
+    reportContent,
+    connectionsList,
+    sendDm
   } = useApp();
 
   const [createPostForm, setCreatePostForm] = useState({ content: '', tags: [], files: [] });
@@ -26,6 +28,8 @@ export default function ModalRoot() {
   const [reportReason, setReportReason] = useState('');
   const [reportDetails, setReportDetails] = useState('');
   const [errors, setErrors] = useState({});
+  const [shareMode, setShareMode] = useState('menu');
+  const [chatSearch, setChatSearch] = useState('');
 
   // Reset form states whenever modal type changes to ensure clean forms on open
   useEffect(() => {
@@ -35,6 +39,8 @@ export default function ModalRoot() {
       setReportReason('');
       setReportDetails('');
       setErrors({});
+      setShareMode('menu');
+      setChatSearch('');
     }
   }, [modal]);
 
@@ -337,35 +343,131 @@ export default function ModalRoot() {
 
     case 'share':
       maxW = 'max-w-md';
-      content = (
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-5">
-            <h2 className="font-display font-bold text-lg text-[var(--text-primary)]">Share Post</h2>
-            <button 
-              type="button"
-              className="p-2 rounded-lg hover:bg-[rgba(15,23,42,0.05)]" 
-              onClick={closeModal} 
-              aria-label="Close"
-            >
-              <Icon icon="lucide:x" style={{ fontSize: '1.25rem', color: 'var(--text-muted)' }} />
-            </button>
+      const sharedPostItem = posts.find(p => p.id === modal.props?.postId);
+      const postSnippet = sharedPostItem ? (sharedPostItem.content || '').slice(0, 60) + '...' : 'Shared post';
+
+      const handleShareToFriend = async (friendId) => {
+        try {
+          await sendDm(friendId, `Shared a post: "${postSnippet}"`, modal.props.postId);
+          showToast('Post shared in chat successfully!', 'success');
+          closeModal();
+        } catch (err) {
+          showToast(err.message || 'Failed to share in chat', 'error');
+        }
+      };
+
+      if (shareMode === 'chat') {
+        const filteredConnections = connectionsList.filter(c => 
+          `${c.first_name || ''} ${c.last_name || ''}`.toLowerCase().includes(chatSearch.toLowerCase())
+        );
+
+        content = (
+          <div className="p-6">
+            <div className="flex items-center gap-3 mb-5">
+              <button 
+                type="button" 
+                onClick={() => setShareMode('menu')}
+                className="p-2 rounded-lg hover:bg-[rgba(15,23,42,0.05)] text-[var(--text-muted)]"
+                aria-label="Back to options"
+              >
+                <Icon icon="lucide:arrow-left" style={{ fontSize: '1.25rem' }} />
+              </button>
+              <h2 className="font-display font-bold text-lg text-[var(--text-primary)] flex-1">Share in Chat</h2>
+              <button 
+                type="button"
+                className="p-2 rounded-lg hover:bg-[rgba(15,23,42,0.05)]" 
+                onClick={closeModal} 
+                aria-label="Close"
+              >
+                <Icon icon="lucide:x" style={{ fontSize: '1.25rem', color: 'var(--text-muted)' }} />
+              </button>
+            </div>
+
+            <div className="mb-4">
+              <input 
+                type="text" 
+                className="input-field text-sm" 
+                placeholder="Search connected friends..."
+                value={chatSearch}
+                onChange={e => setChatSearch(e.target.value)}
+              />
+            </div>
+
+            <div style={{ maxHeight: '250px', overflowY: 'auto' }} className="space-y-2 pr-1">
+              {filteredConnections.length === 0 ? (
+                <p className="text-sm text-center text-[var(--text-muted)] py-4">No connected friends found.</p>
+              ) : (
+                filteredConnections.map(friend => {
+                  const name = `${friend.first_name || ''} ${friend.last_name || ''}`.trim() || 'User';
+                  const initials = ((friend.first_name?.[0] || '') + (friend.last_name?.[0] || '')).toUpperCase();
+                  const avatarColor = `linear-gradient(135deg, var(--accent-purple), var(--accent-blue))`;
+
+                  return (
+                    <button 
+                      key={friend.id}
+                      onClick={() => handleShareToFriend(friend.id)}
+                      className="w-full text-left p-3 rounded-lg border border-[var(--border-color)] hover:border-[var(--accent-purple)] hover:bg-[rgba(15,118,110,0.04)] transition-all flex items-center gap-3 cursor-pointer"
+                      style={{ background: 'none' }}
+                    >
+                      <div 
+                        className="avatar avatar-sm flex items-center justify-center text-white font-bold"
+                        style={{ background: avatarColor, width: '32px', height: '32px', borderRadius: '50%', fontSize: '0.8rem' }}
+                      >
+                        {initials || 'U'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-semibold text-[var(--text-primary)] truncate">{name}</div>
+                        <div className="text-xs text-[var(--text-muted)] truncate">{friend.profession || 'Connection'}</div>
+                      </div>
+                      <Icon icon="lucide:send" style={{ fontSize: '1rem', color: 'var(--accent-purple)' }} />
+                    </button>
+                  );
+                })
+              )}
+            </div>
           </div>
-          <div className="space-y-3">
-            <button className="btn-ghost w-full py-3 text-sm flex items-center gap-3" onClick={handleCopyLink}>
-              <Icon icon="lucide:link" style={{ fontSize: '1.25rem', color: 'var(--accent-purple)' }} /> Copy Link
-            </button>
-            <button className="btn-ghost w-full py-3 text-sm flex items-center gap-3" onClick={closeModal}>
-              <Icon icon="lucide:twitter" style={{ fontSize: '1.25rem', color: '#1DA1F2' }} /> Share on Twitter
-            </button>
-            <button className="btn-ghost w-full py-3 text-sm flex items-center gap-3" onClick={closeModal}>
-              <Icon icon="lucide:linkedin" style={{ fontSize: '1.25rem', color: '#0077B5' }} /> Share on LinkedIn
-            </button>
-            <button className="btn-ghost w-full py-3 text-sm flex items-center gap-3" onClick={closeModal}>
-              <Icon icon="lucide:message-circle" style={{ fontSize: '1.25rem', color: '#25D366' }} /> Share on WhatsApp
-            </button>
+        );
+      } else {
+        content = (
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="font-display font-bold text-lg text-[var(--text-primary)]">Share Post</h2>
+              <button 
+                type="button"
+                className="p-2 rounded-lg hover:bg-[rgba(15,23,42,0.05)]" 
+                onClick={closeModal} 
+                aria-label="Close"
+              >
+                <Icon icon="lucide:x" style={{ fontSize: '1.25rem', color: 'var(--text-muted)' }} />
+              </button>
+            </div>
+            <div className="space-y-3">
+              {/* Primary Option: Share in Chat */}
+              <button 
+                className="btn-gradient w-full py-3 text-sm flex items-center justify-center gap-3 font-semibold mb-2"
+                onClick={() => setShareMode('chat')}
+              >
+                <Icon icon="lucide:message-square" style={{ fontSize: '1.25rem' }} /> Share in Chat
+              </button>
+              
+              <div className="h-px bg-[var(--border-color)] my-2"></div>
+
+              <button className="btn-ghost w-full py-3 text-sm flex items-center gap-3" onClick={handleCopyLink}>
+                <Icon icon="lucide:link" style={{ fontSize: '1.25rem', color: 'var(--accent-purple)' }} /> Copy Link
+              </button>
+              <button className="btn-ghost w-full py-3 text-sm flex items-center gap-3" onClick={closeModal}>
+                <Icon icon="lucide:twitter" style={{ fontSize: '1.25rem', color: '#1DA1F2' }} /> Share on Twitter
+              </button>
+              <button className="btn-ghost w-full py-3 text-sm flex items-center gap-3" onClick={closeModal}>
+                <Icon icon="lucide:linkedin" style={{ fontSize: '1.25rem', color: '#0077B5' }} /> Share on LinkedIn
+              </button>
+              <button className="btn-ghost w-full py-3 text-sm flex items-center gap-3" onClick={closeModal}>
+                <Icon icon="lucide:message-circle" style={{ fontSize: '1.25rem', color: '#25D366' }} /> Share on WhatsApp
+              </button>
+            </div>
           </div>
-        </div>
-      );
+        );
+      }
       break;
 
     case 'report':

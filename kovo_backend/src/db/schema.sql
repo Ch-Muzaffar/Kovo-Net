@@ -164,7 +164,22 @@ CREATE TABLE IF NOT EXISTS public.notifications (
 
 CREATE INDEX idx_notifications_user ON public.notifications(user_id, is_read, created_at DESC);
 
--- ─── 10. Refresh Token Blacklist (for logout) ───
+-- ─── 10. Connections (Friendships) ───
+CREATE TABLE IF NOT EXISTS public.connections (
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    sender_id     UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    receiver_id   UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    status        TEXT NOT NULL CHECK (status IN ('pending', 'accepted', 'rejected')),
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT conn_no_self CHECK (sender_id != receiver_id),
+    CONSTRAINT conn_unique_pair UNIQUE (sender_id, receiver_id)
+);
+
+CREATE INDEX idx_connections_sender ON public.connections(sender_id, status);
+CREATE INDEX idx_connections_receiver ON public.connections(receiver_id, status);
+
+-- ─── 11. Refresh Token Blacklist (for logout) ───
 CREATE TABLE IF NOT EXISTS public.token_blacklist (
     jti            TEXT PRIMARY KEY,
     exp            TIMESTAMPTZ NOT NULL,
@@ -186,6 +201,7 @@ ALTER TABLE public.ledger_transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_points        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.reports            ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.connections        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.token_blacklist    ENABLE ROW LEVEL SECURITY;
 
 -- User profiles: anyone can read, only owner can write
@@ -252,6 +268,12 @@ CREATE POLICY "notifications_select" ON public.notifications
     FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "notifications_update" ON public.notifications
     FOR UPDATE USING (auth.uid() = user_id);
+
+-- Connections: only sender or receiver can select/update/delete; only sender can insert
+CREATE POLICY "connections_select" ON public.connections FOR SELECT USING (auth.uid() IN (sender_id, receiver_id));
+CREATE POLICY "connections_insert" ON public.connections FOR INSERT WITH CHECK (auth.uid() = sender_id);
+CREATE POLICY "connections_update" ON public.connections FOR UPDATE USING (auth.uid() IN (sender_id, receiver_id));
+CREATE POLICY "connections_delete" ON public.connections FOR DELETE USING (auth.uid() IN (sender_id, receiver_id));
 
 -- Token blacklist: no direct RLS access (service role only)
 CREATE POLICY "blacklist_select" ON public.token_blacklist FOR SELECT USING (false);

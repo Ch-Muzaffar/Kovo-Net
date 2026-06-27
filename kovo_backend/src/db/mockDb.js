@@ -22,6 +22,7 @@ const tables = {
   direct_messages: [],
   ledger_transactions: [],
   reports: [],
+  connections: [],
 };
 // No seed data (empty database)
 
@@ -37,6 +38,12 @@ function evaluateCondition(row, condStr) {
   }
   if (op === 'neq') {
     return String(row[field]) !== val;
+  }
+  if (op === 'ilike') {
+    const escaped = val.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    const pattern = escaped.replace(/%/g, '.*');
+    const regex = new RegExp(val.includes('%') ? `^${pattern}$` : `^${escaped}$`, 'i');
+    return regex.test(String(row[field] || ''));
   }
   return false;
 }
@@ -149,6 +156,11 @@ class MockQuery {
     return this;
   }
 
+  ilike(field, value) {
+    this._filters.push({ type: 'ilike', field, value });
+    return this;
+  }
+
   or(filtersStr) {
     this._filters.push({ type: 'or', value: filtersStr });
     return this;
@@ -185,6 +197,13 @@ class MockQuery {
         if (f.type === 'neq') return row[f.field] !== f.value;
         if (f.type === 'in')  return f.values.includes(row[f.field]);
         if (f.type === 'or')  return evaluateOr(row, f.value);
+        if (f.type === 'ilike') {
+          const val = String(f.value || '');
+          const escaped = val.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+          const pattern = escaped.replace(/%/g, '.*');
+          const regex = new RegExp(val.includes('%') ? `^${pattern}$` : `^${escaped}$`, 'i');
+          return regex.test(String(row[f.field] || ''));
+        }
         return true;
       });
     });
@@ -255,6 +274,8 @@ class MockQuery {
             defaults.helpful = false;
           } else if (this._table === 'notifications') {
             defaults.read = false;
+          } else if (this._table === 'connections') {
+            defaults.status = 'pending';
           }
           const row = { id: uuid(), created_at: new Date().toISOString(), ...defaults, ...item };
           if (this._upsert) {

@@ -3,6 +3,7 @@ import { authApi } from '../api/auth.js';
 import { postsApi, commentsApi } from '../api/posts.js';
 import { messagesApi } from '../api/messages.js';
 import { notificationsApi, usersApi } from '../api/users.js';
+import { connectionsApi } from '../api/connections.js';
 import { tokenStorage, ApiError, api } from '../api/client.js';
 
 // ─── localStorage persistence helpers ───
@@ -153,6 +154,27 @@ export function AppProvider({ children }) {
   const [user, setUser]         = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
+  // Theme support
+  const [darkMode, setDarkMode] = useState(() => {
+    return localStorage.getItem('kovo_dark_mode') === 'true';
+  });
+
+  const toggleDarkMode = useCallback(() => {
+    setDarkMode(prev => {
+      const next = !prev;
+      localStorage.setItem('kovo_dark_mode', String(next));
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    } else {
+      document.documentElement.setAttribute('data-theme', 'light');
+    }
+  }, [darkMode]);
+
   const [feedTab, setFeedTab]           = useState('foryou');
   const [registerStep, setRegisterStep] = useState(1);
   const [registerData, setRegisterData] = useState({
@@ -181,6 +203,11 @@ export function AppProvider({ children }) {
   // DM conversations: { id, participantId, participantUser, messages: [{id, senderId, text, ts}], unread }
   const [dmConversations, setDmConversations] = useState([]);
   const [activeDmUserId, setActiveDmUserId] = useState(null);
+
+  // Connection states
+  const [connectionsList, setConnectionsList] = useState([]);
+  const [pendingConnections, setPendingConnections] = useState([]);
+  const [connectionCounts, setConnectionCounts] = useState({});
 
   const [messages]         = useState([]);
   const [notifications, setNotifications]   = useState([]);
@@ -583,19 +610,17 @@ export function AppProvider({ children }) {
   }, [likedPosts]);
 
   const toggleBookmark = useCallback((postId) => {
-    setBookmarkedPosts(prev => {
-      const next = new Set(prev);
-      if (next.has(postId)) {
-        next.delete(postId);
-        showToast('Post removed from bookmarks.', 'info');
-      } else {
-        next.add(postId);
-        showToast('Post bookmarked!', 'success');
-      }
-      saveSetToStorage(STORAGE_KEYS.BOOKMARKED_POSTS, next);
-      return next;
-    });
-  }, [showToast]);
+    const next = new Set(bookmarkedPosts);
+    if (next.has(postId)) {
+      next.delete(postId);
+      showToast('Post removed from bookmarks.', 'info');
+    } else {
+      next.add(postId);
+      showToast('Post bookmarked!', 'success');
+    }
+    saveSetToStorage(STORAGE_KEYS.BOOKMARKED_POSTS, next);
+    setBookmarkedPosts(next);
+  }, [bookmarkedPosts, showToast]);
 
   const toggleHelpful = useCallback((commentId) => {
     setHelpfulComments(prev => {
@@ -630,6 +655,60 @@ export function AppProvider({ children }) {
       myVote: entry.helpful.has('me') ? 'helpful' : entry.not.has('me') ? 'not' : null,
     };
   }, [helpfulVotes]);
+
+  // ─── Connections (Friend Requests & Mutual Connections) ───
+  const loadConnectionsList = useCallback(async () => {
+    try {
+      const res = await connectionsApi.getList();
+      setConnectionsList(res.data || []);
+    } catch (err) {
+      console.error('Failed to load connections list:', err);
+    }
+  }, []);
+
+  const loadPendingConnections = useCallback(async () => {
+    try {
+      const res = await connectionsApi.getPending();
+      setPendingConnections(res.data || []);
+    } catch (err) {
+      console.error('Failed to load pending connections:', err);
+    }
+  }, []);
+
+  const fetchConnectionCount = useCallback(async (targetUserId) => {
+    try {
+      const res = await connectionsApi.getCount(targetUserId);
+      const count = res.data?.count || 0;
+      setConnectionCounts(prev => ({ ...prev, [targetUserId]: count }));
+      return count;
+    } catch (err) {
+      console.error('Failed to fetch connection count:', err);
+      return 0;
+    }
+  }, []);
+
+  const sendConnectionRequest = useCallback(async (targetUserId) => {
+    try {
+      await connectionsApi.sendRequest(targetUserId);
+      showToast('Connection request sent!', 'success');
+      await loadConnectionsList();
+      await loadPendingConnections();
+      await fetchConnectionCount(targetUserId);
+    } catch (err) {
+      showToast(err.message || 'Failed to send request', 'error');
+    }
+  }, [showToast, loadConnectionsList, loadPendingConnections, fetchConnectionCount]);
+
+  const respondToConnection = useCallback(async (connectionId, action) => {
+    try {
+      await connectionsApi.respondRequest(connectionId, action);
+      showToast(action === 'accept' ? 'Connection request accepted!' : 'Connection request declined.', 'info');
+      await loadConnectionsList();
+      await loadPendingConnections();
+    } catch (err) {
+      showToast(err.message || 'Failed to respond to request', 'error');
+    }
+  }, [showToast, loadConnectionsList, loadPendingConnections]);
 
   // ─── DM Conversations ───
   const loadConversations = useCallback(async () => {
@@ -667,6 +746,7 @@ export function AppProvider({ children }) {
         id: m.id,
         senderId: m.sender_id === user?.id ? 'me' : m.sender_id,
         text: m.body,
+        postId: m.post_id || null,
         ts: new Date(m.created_at).getTime()
       }));
 
@@ -688,8 +768,10 @@ export function AppProvider({ children }) {
   useEffect(() => {
     if (isLoggedIn) {
       loadConversations();
+      loadConnectionsList();
+      loadPendingConnections();
     }
-  }, [isLoggedIn, loadConversations]);
+  }, [isLoggedIn, loadConversations, loadConnectionsList, loadPendingConnections]);
 
   useEffect(() => {
     if (isLoggedIn && activeDmUserId) {
@@ -717,14 +799,15 @@ export function AppProvider({ children }) {
     window.scrollTo(0, 0);
   }, []);
 
-  const sendDm = useCallback(async (participantId, text) => {
+  const sendDm = useCallback(async (participantId, text, postId = null) => {
     if (!text.trim()) return;
     try {
-      const newMsg = await messagesApi.sendMessage(participantId, text.trim());
+      const newMsg = await messagesApi.sendMessage(participantId, text.trim(), postId);
       const formattedMsg = {
         id: newMsg.id,
         senderId: 'me',
         text: newMsg.body,
+        postId: newMsg.post_id || postId,
         ts: new Date(newMsg.created_at).getTime()
       };
       
@@ -763,10 +846,13 @@ export function AppProvider({ children }) {
     setUser(prev => ({ ...prev, ...updates }));
   }, []);
 
+
+
   // ─── Context value ───
   const value = {
     view, navigate, prevView,
     user, setUser, updateUser, isLoggedIn, setIsLoggedIn,
+    darkMode, toggleDarkMode,
     feedTab, setFeedTab,
     registerStep, setRegisterStep,
     registerData, setRegisterData,
@@ -782,6 +868,8 @@ export function AppProvider({ children }) {
     selectedPostId, selectedThreadId, setSelectedThreadId,
     messages,
     dmConversations, activeDmUserId, setActiveDmUserId, startDm, sendDm,
+    connectionsList, setConnectionsList, pendingConnections, setPendingConnections, connectionCounts,
+    loadConnectionsList, loadPendingConnections, sendConnectionRequest, respondToConnection, fetchConnectionCount,
     notifications, setNotifications, markAllRead, loadNotifications,
     loading, setLoading,
     createPostData, setCreatePostData, uploadFileToCloudinary,
