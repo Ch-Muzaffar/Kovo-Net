@@ -339,7 +339,22 @@ export default function Register() {
                     <input type="checkbox" checked={form.acceptTerms} onChange={e => { field('acceptTerms', e.target.checked); clearErr('acceptTerms'); }}
                       style={{ width: '16px', height: '16px', marginTop: '2px', accentColor: 'var(--accent-purple)', cursor: 'pointer', flexShrink: 0 }} />
                     <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                      I agree to the <span style={{ color: 'var(--accent-purple)' }}>Terms of Service</span> and <span style={{ color: 'var(--accent-purple)' }}>Privacy Policy</span>
+                      I agree to the{' '}
+                      <a
+                        href="https://kovo-net.vercel.app/terms"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: 'var(--accent-purple)', textDecoration: 'underline', textUnderlineOffset: '2px', cursor: 'pointer' }}
+                        onClick={e => e.stopPropagation()}
+                      >Terms of Service</a>
+                      {' '}and{' '}
+                      <a
+                        href="https://kovo-net.vercel.app/privacy"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: 'var(--accent-purple)', textDecoration: 'underline', textUnderlineOffset: '2px', cursor: 'pointer' }}
+                        onClick={e => e.stopPropagation()}
+                      >Privacy Policy</a>
                     </span>
                   </label>
                   <p className={`error-text ${errors.acceptTerms ? 'visible' : ''}`} style={{ textAlign: 'center', marginBottom: '1rem' }}>{errors.acceptTerms}</p>

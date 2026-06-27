@@ -316,11 +316,36 @@ async function getConnectionCount(userIdOrUsername) {
   return count || 0;
 }
 
+/**
+ * Withdraw a pending connection request (sender only)
+ */
+async function withdrawRequest(senderId, connectionId) {
+  const { data: conn, error: fErr } = await supabaseAdmin
+    .from('connections')
+    .select('*')
+    .eq('id', connectionId)
+    .maybeSingle();
+
+  if (fErr || !conn) throw new NotFoundError('Connection request not found');
+  if (conn.sender_id !== senderId) throw new BadRequestError('You can only withdraw your own requests');
+  if (conn.status !== 'pending') throw new BadRequestError('Only pending requests can be withdrawn');
+
+  const { error: dErr } = await supabaseAdmin
+    .from('connections')
+    .delete()
+    .eq('id', connectionId);
+
+  if (dErr) throw new BadRequestError('Failed to withdraw connection request');
+  return { success: true };
+}
+
 module.exports = {
   sendRequest,
   respondRequest,
   getPendingRequests,
   getConnectionsList,
   getConnectionStatus,
-  getConnectionCount
+  getConnectionCount,
+  withdrawRequest
 };
+

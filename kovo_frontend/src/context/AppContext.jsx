@@ -710,6 +710,17 @@ export function AppProvider({ children }) {
     }
   }, [showToast, loadConnectionsList, loadPendingConnections]);
 
+  const withdrawConnectionRequest = useCallback(async (connectionId) => {
+    try {
+      await connectionsApi.withdrawRequest(connectionId);
+      showToast('Connection request withdrawn.', 'info');
+      await loadConnectionsList();
+      await loadPendingConnections();
+    } catch (err) {
+      showToast(err.message || 'Failed to withdraw request', 'error');
+    }
+  }, [showToast, loadConnectionsList, loadPendingConnections]);
+
   // ─── DM Conversations ───
   const loadConversations = useCallback(async () => {
     try {
@@ -869,7 +880,7 @@ export function AppProvider({ children }) {
     messages,
     dmConversations, activeDmUserId, setActiveDmUserId, startDm, sendDm,
     connectionsList, setConnectionsList, pendingConnections, setPendingConnections, connectionCounts,
-    loadConnectionsList, loadPendingConnections, sendConnectionRequest, respondToConnection, fetchConnectionCount,
+    loadConnectionsList, loadPendingConnections, sendConnectionRequest, respondToConnection, withdrawConnectionRequest, fetchConnectionCount,
     notifications, setNotifications, markAllRead, loadNotifications,
     loading, setLoading,
     createPostData, setCreatePostData, uploadFileToCloudinary,

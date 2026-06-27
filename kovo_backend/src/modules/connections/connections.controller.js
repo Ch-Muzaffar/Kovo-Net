@@ -48,6 +48,14 @@ class ConnectionsController {
       res.status(200).json({ success: true, data: { count } });
     } catch (error) { next(error); }
   }
+
+  static async withdraw(req, res, next) {
+    try {
+      const { connection_id } = req.body;
+      const result = await ConnectionsService.withdrawRequest(req.user.id, connection_id);
+      res.status(200).json({ success: true, data: result });
+    } catch (error) { next(error); }
+  }
 }
 
 module.exports = ConnectionsController;

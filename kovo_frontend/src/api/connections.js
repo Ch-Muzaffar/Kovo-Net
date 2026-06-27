@@ -35,5 +35,11 @@ export const connectionsApi = {
   async getCount(userId) {
     const res = await api.get(`/connections/count/${userId}`);
     return res.data;
+  },
+
+  /** Withdraw a pending connection request by connection ID */
+  async withdrawRequest(connectionId) {
+    const res = await api.post('/connections/withdraw', { connection_id: connectionId });
+    return res.data;
   }
 };

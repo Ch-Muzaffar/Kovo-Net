@@ -48,6 +48,7 @@ export default function Feed() {
     connectionCounts,
     sendConnectionRequest,
     respondToConnection,
+    withdrawConnectionRequest,
     fetchConnectionCount,
     pendingConnections
   } = useApp();
@@ -1313,11 +1314,19 @@ export default function Feed() {
                               {profileConnectionStatus === 'pending_sent' && (
                                 <button
                                   className="btn-secondary px-5 py-2 text-sm flex items-center gap-2"
-                                  style={{ borderRadius: '9999px', cursor: 'not-allowed', opacity: 0.8 }}
-                                  disabled
+                                  style={{ borderRadius: '9999px', borderColor: 'var(--warning, #F59E0B)', color: 'var(--warning, #D97706)', transition: 'all 0.2s' }}
+                                  onClick={async () => {
+                                    if (!profileConnectionId) {
+                                      showToast('Could not find connection request.', 'error');
+                                      return;
+                                    }
+                                    await withdrawConnectionRequest(profileConnectionId);
+                                    setProfileConnectionStatus('none');
+                                    setProfileConnectionId(null);
+                                  }}
                                 >
-                                  <Icon icon="lucide:clock" style={{ fontSize: '0.9rem' }} />
-                                  Pending Request
+                                  <Icon icon="lucide:user-minus" style={{ fontSize: '0.9rem' }} />
+                                  Withdraw Request
                                 </button>
                               )}
 

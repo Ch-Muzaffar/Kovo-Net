@@ -12,7 +12,7 @@ export default function Landing() {
       <div className="gradient-orb" style={{ width: '300px', height: '300px', background: 'radial-gradient(circle,rgba(6,182,212,0.15),transparent)', top: '40%', right: '10%' }}></div>
 
       {/* Nav */}
-      <nav className="fixed top-0 left-0 right-0 z-50 h-20 flex items-center px-6 lg:px-10" style={{ background: 'var(--bg-glass-nav)', borderBottom: '1px solid var(--border-color)', backdropFilter: 'blur(16px)' }}>
+      <nav className="fixed top-0 left-0 right-0 z-50 h-20 flex items-center px-6 lg:px-10" style={{ background: 'var(--bg-glass-nav)', backdropFilter: 'blur(16px)' }}>
         <div className="max-w-7xl mx-auto w-full flex items-center justify-between">
           <div className="flex items-center gap-2.5" style={{ cursor: 'pointer' }} onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
             <div className="w-9 h-9 rounded-lg flex items-center justify-center font-display font-extrabold text-white text-sm" style={{ background: 'var(--gradient-btn)' }}>KO</div>
@@ -62,7 +62,9 @@ export default function Landing() {
                 See How It Works
               </button>
             </div>
-            <div className="flex flex-wrap justify-center items-center gap-6 sm:gap-10 mt-10 pt-8 border-t border-[var(--border-color)] w-full">
+            <div className="flex flex-wrap justify-center items-center gap-6 sm:gap-10 mt-10 pt-8 w-full" style={{ position: 'relative' }}>
+              {/* Gradient fade separator instead of hard border */}
+              <div style={{ position: 'absolute', top: 0, left: '10%', right: '10%', height: '1px', background: 'linear-gradient(90deg, transparent, var(--accent-purple) 30%, var(--accent-blue, #0ea5e9) 70%, transparent)' }} />
               <div><div className="text-2xl font-bold text-[var(--text-primary)]">2.4K+</div><div className="text-xs text-[var(--text-muted)]">Active Members</div></div>
               <div className="w-px h-10 bg-[var(--border-color)]"></div>
               <div><div className="text-2xl font-bold text-[var(--text-primary)]">8.5K+</div><div className="text-xs text-[var(--text-muted)]">Problems Solved</div></div>
