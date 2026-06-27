@@ -789,6 +789,14 @@ export function AppProvider({ children }) {
   }, [isLoggedIn, loadConversations, loadConnectionsList, loadPendingConnections]);
 
   useEffect(() => {
+    if (isLoggedIn && view === 'notifications') {
+      loadNotifications();
+      loadPendingConnections();
+      loadConnectionsList();
+    }
+  }, [isLoggedIn, view, loadNotifications, loadPendingConnections, loadConnectionsList]);
+
+  useEffect(() => {
     if (isLoggedIn && activeDmUserId) {
       loadActiveMessages(activeDmUserId);
     }

@@ -295,8 +295,8 @@ export default function Feed() {
         if (activeUserId !== user?.id) {
           try {
             const statusRes = await connectionsApi.getStatus(activeUserId);
-            connStatus = statusRes.data?.status || 'none';
-            connId = statusRes.data?.connectionId || null;
+            connStatus = statusRes?.status || 'none';
+            connId = statusRes?.connectionId || null;
           } catch (cErr) {
             console.error('Failed to load connection status', cErr);
           }
@@ -1093,8 +1093,8 @@ export default function Feed() {
                 ) : (
                   <div className="space-y-2">
                     {notifications.map(n => {
-                      const typeIcons = { like: 'lucide:heart', comment: 'lucide:message-circle', helpful: 'lucide:check-circle', message: 'lucide:message-square', level: 'lucide:trophy' };
-                      const typeColors = { like: '#F472B6', comment: 'var(--accent-blue)', helpful: 'var(--success)', message: 'var(--accent-purple)', level: '#FBBF24' };
+                      const typeIcons = { like: 'lucide:heart', comment: 'lucide:message-circle', helpful: 'lucide:check-circle', message: 'lucide:message-square', level: 'lucide:trophy', connection_request: 'lucide:user-plus', connection_accepted: 'lucide:user-check' };
+                      const typeColors = { like: '#F472B6', comment: 'var(--accent-blue)', helpful: 'var(--success)', message: 'var(--accent-purple)', level: '#FBBF24', connection_request: 'var(--accent-purple)', connection_accepted: 'var(--success)' };
                       return (
                         <div key={n.id} className={`card p-4 flex items-start gap-3 ${!n.read ? 'border-l-2 border-l-[var(--accent-purple)]' : ''}`}>
                           <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: `${typeColors[n.type]}20` }}>
@@ -1307,8 +1307,8 @@ export default function Feed() {
                                       const result = await sendConnectionRequest(u.id);
                                       setProfileConnectionStatus('pending_sent');
                                       // Capture connection ID for withdraw
-                                      if (result?.data?.id) {
-                                        setProfileConnectionId(result.data.id);
+                                      if (result?.id) {
+                                        setProfileConnectionId(result.id);
                                       }
                                     } catch {
                                       // Error already shown via toast in sendConnectionRequest
