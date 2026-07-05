@@ -469,6 +469,30 @@ export function SearchProvider({ children }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchedUsers, setSearchedUsers] = useState([]);
 
+  // ─── Search History ───
+  const [searchHistory, setSearchHistory] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('kovo_search_history') || '[]'); } catch { return []; }
+  });
+
+  const addToSearchHistory = useCallback((query) => {
+    if (!query || !query.trim()) return;
+    setSearchHistory(prev => {
+      const deduped = [query.trim(), ...prev.filter(h => h !== query.trim())].slice(0, 5);
+      try { localStorage.setItem('kovo_search_history', JSON.stringify(deduped)); } catch { /* ignore */ }
+      return deduped;
+    });
+  }, []);
+
+  const clearSearchHistory = useCallback(() => {
+    setSearchHistory([]);
+    try { localStorage.removeItem('kovo_search_history'); } catch { /* ignore */ }
+  }, []);
+
+  // Track last committed query to add to history on Enter/blur
+  const commitSearch = useCallback((query) => {
+    if (query.trim()) addToSearchHistory(query.trim());
+  }, [addToSearchHistory]);
+
   useEffect(() => {
     if (!isLoggedIn || !searchQuery.trim()) {
       setSearchedUsers([]);
@@ -487,11 +511,9 @@ export function SearchProvider({ children }) {
     return () => clearTimeout(delayDebounce);
   }, [searchQuery, isLoggedIn]);
 
-
-
   const value = useMemo(() => ({
-    searchQuery, setSearchQuery, searchedUsers
-  }), [searchQuery, searchedUsers]);
+    searchQuery, setSearchQuery, searchedUsers, searchHistory, addToSearchHistory, clearSearchHistory, commitSearch
+  }), [searchQuery, searchedUsers, searchHistory, addToSearchHistory, clearSearchHistory, commitSearch]);
 
   return <SearchContext.Provider value={value}>{children}</SearchContext.Provider>;
 }
@@ -732,6 +754,29 @@ export function PostsProvider({ children }) {
     }
   }, [showToast]);
 
+  const editPost = useCallback(async (postId, content, tags) => {
+    // Enforce 15-minute edit window on the client (server also validates)
+    const post = posts.find(p => p.id === postId);
+    if (post) {
+      const ageMs = Date.now() - (post.createdAt || 0);
+      if (ageMs > 15 * 60 * 1000) {
+        showToast('Posts can only be edited within 15 minutes of creation.', 'error');
+        return;
+      }
+    }
+    try {
+      const updated = await postsApi.updatePost(postId, {
+        body: content,
+        tags: tags.map(t => ({ type: 'topic', value: t })),
+      });
+      const normalised = normalisePost({ ...updated, creator: post?.creator });
+      setPosts(prev => prev.map(p => p.id === postId ? { ...p, ...normalised } : p));
+      showToast('Post updated!', 'success');
+    } catch (err) {
+      showToast('Failed to update post: ' + (err.message || ''), 'error');
+    }
+  }, [showToast, posts]);
+
   const addComment = useCallback(async (postId, content) => {
     const tempId = `temp-comment-${Date.now()}`;
     const tempComment = {
@@ -851,9 +896,9 @@ export function PostsProvider({ children }) {
     posts, setPosts, comments, setComments, likedPosts, setLikedPosts, bookmarkedPosts, setBookmarkedPosts,
     helpfulVotes, setHelpfulVotes, helpfulComments, setHelpfulComments, reportedContent, setReportedContent,
     feedCursor, feedHasMore, feedTab, setFeedTab, createPostData, setCreatePostData, commentInputs, setCommentInputs,
-    loading, loadFeed, loadComments, submitPost, deletePost, addComment, toggleLike, toggleBookmark, toggleHelpful,
+    loading, loadFeed, loadComments, submitPost, editPost, deletePost, addComment, toggleLike, toggleBookmark, toggleHelpful,
     voteHelpful, getVoteCounts, reportContent
-  }), [posts, comments, likedPosts, bookmarkedPosts, helpfulVotes, helpfulComments, reportedContent, feedCursor, feedHasMore, feedTab, createPostData, commentInputs, loading, loadFeed, loadComments, submitPost, deletePost, addComment, toggleLike, toggleBookmark, toggleHelpful, voteHelpful, getVoteCounts, reportContent]);
+  }), [posts, comments, likedPosts, bookmarkedPosts, helpfulVotes, helpfulComments, reportedContent, feedCursor, feedHasMore, feedTab, createPostData, commentInputs, loading, loadFeed, loadComments, submitPost, editPost, deletePost, addComment, toggleLike, toggleBookmark, toggleHelpful, voteHelpful, getVoteCounts, reportContent]);
 
   return <PostsContext.Provider value={value}>{children}</PostsContext.Provider>;
 }
@@ -994,6 +1039,7 @@ export function DmProvider({ children }) {
 
   const [dmConversations, setDmConversations] = useState([]);
   const [activeDmUserId, setActiveDmUserId] = useState(null);
+  const [unreadDmCount, setUnreadDmCount] = useState(0);
 
   // Instantly load cached conversations on mount/login, and reset state on logout
   useEffect(() => {
@@ -1295,14 +1341,31 @@ export function DmProvider({ children }) {
     await sendDm(participantId, msg.text, msg.postId, tempId);
   }, [dmConversations, sendDm]);
 
-  useEffect(() => {
-    if (isLoggedIn) {
-      loadConversations();
-    } else {
-      setDmConversations([]);
-      setActiveDmUserId(null);
+  // When a conversation is opened, reset unread count
+  const openConversation = useCallback((participantId) => {
+    setActiveDmUserId(participantId);
+    setUnreadDmCount(0);
+  }, []);
+
+  const deleteDm = useCallback(async (messageId, participantId) => {
+    // Optimistically remove from UI
+    setDmConversations(prev => {
+      const next = prev.map(c => {
+        if (c.participantId !== participantId) return c;
+        return { ...c, messages: c.messages.filter(m => m.id !== messageId) };
+      });
+      chatStorage.saveConversations(next);
+      return next;
+    });
+    try {
+      await messagesApi.deleteMessage(messageId);
+    } catch (err) {
+      // Revert on failure by reloading
+      loadActiveMessages(participantId);
+      throw err;
     }
-  }, [isLoggedIn, loadConversations]);
+  }, [loadActiveMessages]);
+
 
   useEffect(() => {
     const handleRefresh = () => {
@@ -1311,6 +1374,16 @@ export function DmProvider({ children }) {
     window.addEventListener('connection-accepted-refresh', handleRefresh);
     return () => window.removeEventListener('connection-accepted-refresh', handleRefresh);
   }, [loadConversations]);
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      loadConversations();
+    } else {
+      setDmConversations([]);
+      setActiveDmUserId(null);
+      setUnreadDmCount(0);
+    }
+  }, [isLoggedIn, loadConversations]);
 
   useEffect(() => {
     if (isLoggedIn && activeDmUserId) {
@@ -1364,6 +1437,8 @@ export function DmProvider({ children }) {
         const connUser = connectionsList.find(u => u.id === partnerId);
         const name = connUser ? `${connUser.first_name || ''} ${connUser.last_name || ''}`.trim() || 'User' : 'someone';
         showToast(`New message from ${name}`, 'info');
+        // Increment unread badge when message arrives for a different conversation
+        setUnreadDmCount(prev => prev + 1);
       }
     };
 
@@ -1469,8 +1544,9 @@ export function DmProvider({ children }) {
   }, [activeDmUserId, loadConversations, showToast, connectionsList]);
 
   const value = useMemo(() => ({
-    dmConversations, setDmConversations, activeDmUserId, setActiveDmUserId, startDm, sendDm, retrySendDm, loadActiveMessages
-  }), [dmConversations, activeDmUserId, startDm, sendDm, retrySendDm, loadActiveMessages]);
+    dmConversations, setDmConversations, activeDmUserId, setActiveDmUserId, openConversation,
+    unreadDmCount, startDm, sendDm, retrySendDm, deleteDm, loadActiveMessages
+  }), [dmConversations, activeDmUserId, unreadDmCount, openConversation, startDm, sendDm, retrySendDm, deleteDm, loadActiveMessages]);
 
   return <DmContext.Provider value={value}>{children}</DmContext.Provider>;
 }

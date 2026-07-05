@@ -22,5 +22,11 @@ export const messagesApi = {
       post_id: postId
     });
     return res.data;
+  },
+
+  /** Soft-delete (unsend) a message — only sender can delete within 15 minutes */
+  async deleteMessage(messageId) {
+    const res = await api.delete(`/messages/${messageId}`);
+    return res.data;
   }
 };

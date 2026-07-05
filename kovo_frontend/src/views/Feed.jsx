@@ -22,10 +22,21 @@ const ConnectionsView = React.lazy(() => import('./subviews/ConnectionsView'));
 export default function Feed() {
   const { view, navigate } = useNavigation();
   const { user, logout } = useAuth();
-  const { searchQuery, searchedUsers, setSearchQuery } = useSearch();
+  const {
+    searchQuery,
+    searchedUsers,
+    setSearchQuery,
+    searchHistory,
+    clearSearchHistory,
+    commitSearch
+  } = useSearch();
   const { notifications } = useNotifications();
   const { startDm } = useDms();
   const { darkMode, toggleDarkMode } = useTheme();
+
+  // Focus states for search inputs to toggle search history dropdown
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [mobileSearchFocused, setMobileSearchFocused] = useState(false);
 
   // Mobile search toggle state
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
@@ -93,8 +104,8 @@ export default function Feed() {
             </div>
 
             {/* CENTER SEARCH CONTAINER — Aligned with feed content */}
-            <div className="feed-header-search-container">
-              <div className="feed-header-search-inner">
+            <div className="feed-header-search-container" style={{ position: 'relative' }}>
+              <div className="feed-header-search-inner" style={{ position: 'relative' }}>
                 <Icon icon="lucide:search" style={{ position: 'absolute', left: '26px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '1rem', pointerEvents: 'none', zIndex: 5 }} />
                 <input
                   type="text"
@@ -117,6 +128,15 @@ export default function Feed() {
                   placeholder="Search posts, people, tags, @username..."
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
+                  onFocus={() => setSearchFocused(true)}
+                  onBlur={() => {
+                    setTimeout(() => setSearchFocused(false), 200);
+                  }}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      commitSearch(searchQuery);
+                    }
+                  }}
                   aria-label="Search"
                 />
                 {searchQuery && (
@@ -129,6 +149,70 @@ export default function Feed() {
                   </button>
                 )}
               </div>
+
+              {/* Desktop Recent Searches Dropdown */}
+              {searchFocused && !searchQuery && searchHistory.length > 0 && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 8px)',
+                    left: '12px',
+                    right: '12px',
+                    background: 'var(--bg-glass-nav)',
+                    backdropFilter: 'blur(24px) saturate(200%)',
+                    WebkitBackdropFilter: 'blur(24px) saturate(200%)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: 'var(--radius-lg)',
+                    boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+                    zIndex: 99,
+                    padding: '0.5rem 0'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.4rem 1rem 0.4rem', borderBottom: '1px solid var(--border-color)' }}>
+                    <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Recent Searches</span>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        clearSearchHistory();
+                      }}
+                      style={{ background: 'none', border: 'none', color: 'var(--accent-purple)', fontSize: '0.7rem', cursor: 'pointer', fontWeight: 700, textTransform: 'uppercase' }}
+                    >
+                      Clear All
+                    </button>
+                  </div>
+                  <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                    {searchHistory.map((h, i) => (
+                      <button
+                        key={i}
+                        onClick={() => {
+                          setSearchQuery(h);
+                          commitSearch(h);
+                        }}
+                        style={{
+                          width: '100%',
+                          textAlign: 'left',
+                          background: 'none',
+                          border: 'none',
+                          padding: '0.6rem 1rem',
+                          fontSize: '0.825rem',
+                          color: 'var(--text-secondary)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem',
+                          cursor: 'pointer',
+                          transition: 'background 0.2s'
+                        }}
+                        onMouseEnter={(e) => e.target.style.background = 'var(--bg-glass-input)'}
+                        onMouseLeave={(e) => e.target.style.background = 'none'}
+                      >
+                        <Icon icon="lucide:history" style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }} />
+                        <span>{h}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* RIGHT GROUP */}
@@ -336,6 +420,15 @@ export default function Feed() {
                   placeholder="Search posts, people, @username..."
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
+                  onFocus={() => setMobileSearchFocused(true)}
+                  onBlur={() => {
+                    setTimeout(() => setMobileSearchFocused(false), 200);
+                  }}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      commitSearch(searchQuery);
+                    }
+                  }}
                   aria-label="Search"
                 />
                 {searchQuery && (
@@ -348,6 +441,68 @@ export default function Feed() {
                   </button>
                 )}
               </div>
+
+              {/* Mobile Recent Searches Dropdown */}
+              {mobileSearchFocused && !searchQuery && searchHistory.length > 0 && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 8px)',
+                    left: '0',
+                    right: '0',
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: 'var(--radius-lg)',
+                    boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+                    zIndex: 99,
+                    padding: '0.5rem 0'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.4rem 1rem 0.4rem', borderBottom: '1px solid var(--border-color)' }}>
+                    <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Recent Searches</span>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        clearSearchHistory();
+                      }}
+                      style={{ background: 'none', border: 'none', color: 'var(--accent-purple)', fontSize: '0.7rem', cursor: 'pointer', fontWeight: 700, textTransform: 'uppercase' }}
+                    >
+                      Clear All
+                    </button>
+                  </div>
+                  <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                    {searchHistory.map((h, i) => (
+                      <button
+                        key={i}
+                        onClick={() => {
+                          setSearchQuery(h);
+                          commitSearch(h);
+                        }}
+                        style={{
+                          width: '100%',
+                          textAlign: 'left',
+                          background: 'none',
+                          border: 'none',
+                          padding: '0.6rem 1rem',
+                          fontSize: '0.825rem',
+                          color: 'var(--text-secondary)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem',
+                          cursor: 'pointer',
+                          transition: 'background 0.2s'
+                        }}
+                        onMouseEnter={(e) => e.target.style.background = 'var(--bg-glass-input)'}
+                        onMouseLeave={(e) => e.target.style.background = 'none'}
+                      >
+                        <Icon icon="lucide:history" style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }} />
+                        <span>{h}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </header>

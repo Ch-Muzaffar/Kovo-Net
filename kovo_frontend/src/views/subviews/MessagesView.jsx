@@ -9,8 +9,10 @@ export default function MessagesView() {
     dmConversations,
     activeDmUserId,
     setActiveDmUserId,
+    openConversation,
     sendDm,
     retrySendDm,
+    deleteDm,
     loadActiveMessages,
     setDmConversations
   } = useDms();
@@ -177,7 +179,7 @@ export default function MessagesView() {
               return (
                 <button
                   key={conv.id}
-                  onClick={() => setActiveDmUserId(conv.participantId)}
+                  onClick={() => openConversation(conv.participantId)}
                   style={{
                     width: '100%', textAlign: 'left', border: 'none', cursor: 'pointer',
                     background: isActive ? 'rgba(15,118,110,0.08)' : 'var(--bg-card)',
@@ -596,6 +598,29 @@ export default function MessagesView() {
                 <Icon icon="lucide:arrow-right-right" style={{ fontSize: '1.1rem' }} />
                 <span>Forward</span>
               </button>
+
+              {/* Unsend — only for own messages within 15 minutes */}
+              {contextMenuMsg.isMe && (Date.now() - contextMenuMsg.ts) < 15 * 60 * 1000 && (
+                <>
+                  <div style={{ height: '1px', background: 'var(--border-color)', margin: '0.25rem 0' }} />
+                  <button
+                    onClick={async () => {
+                      try {
+                        await deleteDm(contextMenuMsg.id, activeDmUserId);
+                        showToast('Message unsent.', 'info');
+                      } catch {
+                        showToast('Could not unsend — message may be too old.', 'error');
+                      }
+                      setContextMenuMsg(null);
+                    }}
+                    className="btn-ghost"
+                    style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', justifyContent: 'flex-start', padding: '0.6rem 0.8rem', borderRadius: 'var(--radius-md)', color: '#ef4444' }}
+                  >
+                    <Icon icon="lucide:trash-2" style={{ fontSize: '1.1rem', color: '#ef4444' }} />
+                    <span>Unsend Message</span>
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { useTheme, useUI, useAuth, useNavigation, usePosts, useNotifications, useConnections } from '../context/AppContext';
+import { useTheme, useUI, useAuth, useNavigation, usePosts, useNotifications, useConnections, useDms } from '../context/AppContext';
 import Icon from './Icon';
 import { usersApi } from '../api/users.js';
 import { connectionsApi } from '../api/connections.js';
@@ -12,6 +12,7 @@ export default function Sidebar() {
   const { bookmarkedPosts } = usePosts();
   const { notifications } = useNotifications();
   const { pendingConnections } = useConnections();
+  const { unreadDmCount } = useDms();
 
   const unreadNotifs = notifications.some(n => !n.read);
   const bookmarkCount = bookmarkedPosts.size;
@@ -19,7 +20,7 @@ export default function Sidebar() {
 
   const navItems = [
     { id: 'feed', label: 'Home', icon: 'solar:home-2-bold-duotone' },
-    { id: 'messages', label: 'Messages', icon: 'solar:chat-round-line-bold-duotone' },
+    { id: 'messages', label: 'Messages', icon: 'solar:chat-round-line-bold-duotone', badge: unreadDmCount > 0, badgeCount: unreadDmCount },
     { id: 'connections', label: 'Connections', icon: 'solar:users-group-rounded-bold-duotone', badge: pendingCount > 0, badgeCount: pendingCount },
     { id: 'bookmarks', label: 'Bookmarks', icon: 'solar:bookmark-bold-duotone', badge: bookmarkCount > 0, badgeCount: bookmarkCount },
     { id: 'profile', label: 'Profile', icon: 'solar:user-circle-bold-duotone' },

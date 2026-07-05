@@ -258,4 +258,33 @@ async function getConversationMessages(userId, otherUserId, { cursor, pageSize }
   };
 }
 
-module.exports = { sendMessage, getConversations, getConversationMessages };
+async function deleteMessage(userId, messageId) {
+  const { data: msg, error: fetchErr } = await supabaseAdmin
+    .from('direct_messages')
+    .select('id, sender_id, created_at, is_hidden')
+    .eq('id', messageId)
+    .maybeSingle();
+
+  if (fetchErr || !msg) throw new NotFoundError('Message not found');
+  if (msg.sender_id !== userId) throw new BadRequestError('You can only unsend your own messages');
+  if (msg.is_hidden) throw new BadRequestError('Message already deleted');
+
+  // 15-minute unsend window
+  const ageMs = Date.now() - new Date(msg.created_at).getTime();
+  if (ageMs > 15 * 60 * 1000) throw new BadRequestError('Messages can only be unsent within 15 minutes of sending');
+
+  const { error } = await supabaseAdmin
+    .from('direct_messages')
+    .update({ is_hidden: true })
+    .eq('id', messageId);
+
+  if (error) throw new BadRequestError('Failed to delete message');
+
+  // Invalidate conversation caches
+  cache.invalidate(`conversations:${userId}`);
+
+  logger.info('DM deleted', { messageId, userId });
+  return { success: true };
+}
+
+module.exports = { sendMessage, getConversations, getConversationMessages, deleteMessage };

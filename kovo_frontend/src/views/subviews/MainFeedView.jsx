@@ -1,12 +1,13 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { usePosts, useSearch, useUI } from '../../context/AppContext';
 import PostCard from '../../components/PostCard';
 import Icon from '../../components/Icon';
 
 export default function MainFeedView() {
-  const { posts } = usePosts();
+  const { posts, loadFeed, feedCursor, feedHasMore, loading } = usePosts();
   const { searchQuery } = useSearch();
   const { openModal } = useUI();
+  const sentinelRef = useRef(null);
 
   // Filter posts based on searchQuery
   let displayPosts = [...posts];
@@ -33,6 +34,21 @@ export default function MainFeedView() {
     if (!a.isTarget && b.isTarget) return 1;
     return b.createdAt - a.createdAt;
   });
+
+  // Infinite scroll — observe the sentinel div at the bottom of the list
+  useEffect(() => {
+    if (!sentinelRef.current) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && feedHasMore && !loading.feed && !searchQuery) {
+          loadFeed(feedCursor);
+        }
+      },
+      { rootMargin: '200px' } // trigger 200px before the user hits the very bottom
+    );
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [feedHasMore, feedCursor, loading.feed, searchQuery, loadFeed]);
 
   return (
     <div className="page-enter">
@@ -62,6 +78,25 @@ export default function MainFeedView() {
       ) : (
         <div className="space-y-4">
           {displayPosts.map(p => <PostCard key={p.id} post={p} />)}
+        </div>
+      )}
+
+      {/* Infinite scroll sentinel */}
+      <div ref={sentinelRef} style={{ height: '1px', marginTop: '1rem' }} />
+
+      {/* Loading indicator for next page */}
+      {loading.feed && posts.length > 0 && (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '1.5rem', gap: '0.5rem', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+          <Icon icon="lucide:loader-2" style={{ fontSize: '1.1rem', animation: 'spin 1s linear infinite' }} />
+          <span>Loading more posts…</span>
+        </div>
+      )}
+
+      {/* End of feed indicator */}
+      {!feedHasMore && posts.length > 0 && !searchQuery && (
+        <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-muted)', fontSize: '0.75rem', borderTop: '1px solid var(--border-color)', marginTop: '1rem' }}>
+          <Icon icon="lucide:check-circle" style={{ fontSize: '1.2rem', marginBottom: '0.5rem', display: 'block', margin: '0 auto 0.5rem' }} />
+          You're all caught up!
         </div>
       )}
     </div>

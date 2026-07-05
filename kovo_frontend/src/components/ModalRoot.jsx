@@ -14,17 +14,21 @@ export default function ModalRoot() {
     user, 
     posts, 
     submitPost, 
+    editPost,
     deletePost, 
     toggleLike, 
     showToast,
     reportedContent,
     reportContent,
     connectionsList,
-    sendDm
+    sendDm,
+    openModal
   } = useApp();
 
   const [createPostForm, setCreatePostForm] = useState({ content: '', tags: [], files: [] });
   const [tagInput, setTagInput] = useState('');
+  const [editPostForm, setEditPostForm] = useState({ content: '', tags: [] });
+  const [editTagInput, setEditTagInput] = useState('');
   const [reportReason, setReportReason] = useState('');
   const [reportDetails, setReportDetails] = useState('');
   const [errors, setErrors] = useState({});
@@ -36,8 +40,8 @@ export default function ModalRoot() {
   // Reset form states whenever modal type changes to ensure clean forms on open
   useEffect(() => {
     if (modal) {
-      setCreatePostForm({ content: '', tags: [], files: [] });
       setTagInput('');
+      setEditTagInput('');
       setReportReason('');
       setReportDetails('');
       setErrors({});
@@ -47,8 +51,44 @@ export default function ModalRoot() {
 
       const pdfUrl = modal.props?.pdfUrl || '';
       setPdfViewerMode(pdfUrl.includes('cloudinary.com') ? 'google' : 'browser');
+
+      if (modal.type === 'create-post') {
+        // Load draft
+        try {
+          const draft = localStorage.getItem('kovo_post_draft');
+          if (draft) {
+            const parsed = JSON.parse(draft);
+            setCreatePostForm({
+              content: parsed.content || '',
+              tags: parsed.tags || [],
+              files: []
+            });
+          } else {
+            setCreatePostForm({ content: '', tags: [], files: [] });
+          }
+        } catch {
+          setCreatePostForm({ content: '', tags: [], files: [] });
+        }
+      } else if (modal.type === 'edit-post') {
+        setEditPostForm({
+          content: modal.props.content || '',
+          tags: modal.props.tags || []
+        });
+      }
     }
   }, [modal]);
+
+  // Auto-save draft logic for create-post
+  useEffect(() => {
+    if (modal?.type === 'create-post') {
+      const { content, tags } = createPostForm;
+      if (content.trim() || tags.length > 0) {
+        localStorage.setItem('kovo_post_draft', JSON.stringify({ content, tags }));
+      } else {
+        localStorage.removeItem('kovo_post_draft');
+      }
+    }
+  }, [createPostForm, modal]);
 
   if (!modal) return null;
 
@@ -107,6 +147,23 @@ export default function ModalRoot() {
     closeModal();
   };
 
+  const handleEditPostSubmit = (e) => {
+    e.preventDefault();
+    const content = editPostForm.content.trim();
+    const newErrors = {};
+
+    if (!content) newErrors.content = 'Post content cannot be empty.';
+    else if (content.length < 10) newErrors.content = 'Post content must be at least 10 characters.';
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
+    editPost(modal.props.postId, content, editPostForm.tags);
+    closeModal();
+  };
+
   // REPORT HANDLERS
   const handleReportSubmit = (e) => {
     e.preventDefault();
@@ -136,6 +193,183 @@ export default function ModalRoot() {
   let maxW = 'max-w-lg';
 
   switch (modal.type) {
+    case 'edit-post': {
+      const allAvailableTags = Array.from(new Set([
+        ...DEFAULT_TAGS,
+        ...posts.flatMap(p => p.tags || [])
+      ])).sort();
+      const availableTags = allAvailableTags.filter(t => !editPostForm.tags.includes(t));
+
+      maxW = 'max-w-lg';
+      content = (
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="font-display font-bold text-lg text-[var(--text-primary)]">Edit Post</h2>
+            <button 
+              type="button"
+              className="p-2 rounded-lg hover:bg-[rgba(15,23,42,0.05)] transition-colors" 
+              onClick={closeModal} 
+              aria-label="Close"
+            >
+              <Icon icon="lucide:x" style={{ fontSize: '1.25rem', color: 'var(--text-muted)' }} />
+            </button>
+          </div>
+          <form onSubmit={handleEditPostSubmit} noValidate>
+            <div className="flex items-start gap-3 mb-4">
+              <div 
+                className="avatar avatar-sm" 
+                style={{ background: user?.username ? `var(--gradient-btn)` : '#ccc' }}
+              >
+                {user?.firstName?.[0]}{user?.lastName?.[0]}
+              </div>
+              <div className="flex-1">
+                <div className="text-sm font-medium">{user?.username}</div>
+                <div className="text-xs text-[var(--text-muted)]">Editing post</div>
+              </div>
+            </div>
+            <div className="mb-4">
+              <textarea 
+                className={`input-field text-sm ${errors.content ? 'error' : ''}`}
+                placeholder="Describe your problem or question in detail..." 
+                rows="5"
+                value={editPostForm.content}
+                onChange={e => {
+                  setEditPostForm(prev => ({ ...prev, content: e.target.value }));
+                  setErrors(prev => ({ ...prev, content: null }));
+                }}
+                aria-label="Post content"
+              />
+              <p className={`error-text ${errors.content ? 'visible' : ''}`}>{errors.content}</p>
+            </div>
+            
+            {/* Tag Selection Dropdown */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
+                Tags (Click to add or type custom)
+              </label>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {editPostForm.tags.map((t, i) => (
+                  <span key={i} className="tag flex items-center gap-1" style={{ background: 'var(--accent-purple)', color: '#fff', border: 'none' }}>
+                    {t}
+                    <button 
+                      type="button" 
+                      className="hover:text-white ml-0.5 font-bold" 
+                      onClick={() => setEditPostForm(prev => ({ ...prev, tags: prev.tags.filter((_, idx) => idx !== i) }))}
+                      aria-label={`Remove tag ${t}`}
+                      style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer' }}
+                    >
+                      &times;
+                    </button>
+                  </span>
+                ))}
+              </div>
+              
+              {editPostForm.tags.length >= 5 ? (
+                <p className="text-xs text-[var(--text-muted)]">Maximum 5 tags reached.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {/* Clickable Standard Tags */}
+                  <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto p-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-input)]">
+                    {availableTags.map(t => (
+                      <button
+                        key={t}
+                        type="button"
+                        className="tag"
+                        style={{ background: '#fff', border: '1px solid var(--border-color)', color: 'var(--text-secondary)', cursor: 'pointer' }}
+                        onClick={() => {
+                          setEditPostForm(prev => ({ ...prev, tags: [...prev.tags, t] }));
+                          setErrors(prev => ({ ...prev, tags: null }));
+                        }}
+                      >
+                        + {t}
+                      </button>
+                    ))}
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <div className="flex-1" style={{ position: 'relative' }}>
+                      <select 
+                        className="input-field text-sm" 
+                        style={{ appearance: 'none', WebkitAppearance: 'none', paddingRight: '2.25rem', cursor: 'pointer', color: 'var(--text-secondary)' }}
+                        value=""
+                        onChange={e => {
+                          const val = e.target.value;
+                          if (val && !editPostForm.tags.includes(val)) {
+                            setEditPostForm(prev => ({ ...prev, tags: [...prev.tags, val] }));
+                            setErrors(prev => ({ ...prev, tags: null }));
+                          }
+                        }}
+                        aria-label="Select a tag"
+                      >
+                        <option value="" disabled>Select standard tag...</option>
+                        {availableTags.map(t => (
+                          <option key={t} value={t}>{t}</option>
+                        ))}
+                      </select>
+                      <Icon icon="lucide:chevron-down" style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '1rem', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+                    </div>
+                    
+                    <div className="flex gap-1 flex-1">
+                      <input 
+                        type="text" 
+                        className="input-field text-sm" 
+                        placeholder="Or type custom tag..."
+                        value={editTagInput}
+                        onChange={e => setEditTagInput(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const val = editTagInput.trim();
+                            if (val && !editPostForm.tags.includes(val)) {
+                              setEditPostForm(prev => ({ ...prev, tags: [...prev.tags, val] }));
+                              setEditTagInput('');
+                              setErrors(prev => ({ ...prev, tags: null }));
+                            }
+                          }
+                        }}
+                      />
+                      <button 
+                        type="button" 
+                        className="btn-gradient px-3" 
+                        onClick={() => {
+                          const val = editTagInput.trim();
+                          if (val && !editPostForm.tags.includes(val)) {
+                            setEditPostForm(prev => ({ ...prev, tags: [...prev.tags, val] }));
+                            setEditTagInput('');
+                            setErrors(prev => ({ ...prev, tags: null }));
+                          }
+                        }}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              <p className={`error-text ${errors.tags ? 'visible' : ''}`}>{errors.tags}</p>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button 
+                type="button" 
+                className="btn-secondary px-5 py-2.5 text-sm" 
+                onClick={closeModal}
+              >
+                Cancel
+              </button>
+              <button 
+                type="submit" 
+                className="btn-gradient px-6 py-2.5 text-sm"
+              >
+                Save Changes
+              </button>
+            </div>
+          </form>
+        </div>
+      );
+      break;
+    }
+
     case 'create-post':
       const allAvailableTags = Array.from(new Set([
         ...DEFAULT_TAGS,
@@ -537,11 +771,23 @@ export default function ModalRoot() {
       break;
 
     case 'post-menu':
-      const isOwner = posts.find(p => p.id === modal.props.postId)?.userId === user.id;
+      const postItem = posts.find(p => p.id === modal.props.postId);
+      const isOwner = postItem?.userId === user.id;
+      const isEditable = postItem && (Date.now() - (postItem.createdAt || 0)) < 15 * 60 * 1000;
       const isReported = reportedContent.has(modal.props.postId);
       maxW = 'max-w-xs';
       content = (
         <div className="p-2">
+          {isOwner && isEditable && (
+            <button
+              className="sidebar-item text-sm w-full"
+              onClick={() => {
+                openModal('edit-post', { postId: postItem.id, content: postItem.content, tags: postItem.tags || [] });
+              }}
+            >
+              <Icon icon="lucide:edit-3" style={{ fontSize: '1.125rem', color: 'var(--accent-purple)' }} /> Edit Post
+            </button>
+          )}
           <button 
             className="sidebar-item text-sm w-full" 
             onClick={() => { toggleLike(modal.props.postId); showToast('Post status toggled!', 'success'); closeModal(); }}

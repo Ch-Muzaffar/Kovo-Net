@@ -1,6 +1,6 @@
 'use strict';
 
-const { sendMessage, getConversations, getConversationMessages } = require('./messages.service');
+const { sendMessage, getConversations, getConversationMessages, deleteMessage } = require('./messages.service');
 const { parsePageSize } = require('../../utils/pagination');
 
 class MessagesController {
@@ -20,6 +20,12 @@ class MessagesController {
     try {
       const pageSize = parsePageSize(req.query.pageSize);
       const result = await getConversationMessages(req.user.id, req.params.otherUserId, { cursor: req.query.cursor || null, pageSize });
+      res.status(200).json(result);
+    } catch (error) { next(error); }
+  }
+  static async deleteMessage(req, res, next) {
+    try {
+      const result = await deleteMessage(req.user.id, req.params.messageId);
       res.status(200).json(result);
     } catch (error) { next(error); }
   }

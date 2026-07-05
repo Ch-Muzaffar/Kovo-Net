@@ -100,12 +100,15 @@ async function getPost(postId, userId) {
 async function updatePost(postId, userId, data) {
   const { data: existing } = await supabaseAdmin
     .from('posts')
-    .select('user_id')
+    .select('user_id, created_at')
     .eq('id', postId)
     .single();
 
   if (!existing) throw new NotFoundError('Post not found');
   if (existing.user_id !== userId) throw new ForbiddenError('You can only edit your own posts');
+
+  const ageMs = Date.now() - new Date(existing.created_at).getTime();
+  if (ageMs > 15 * 60 * 1000) throw new BadRequestError('Posts can only be edited within 15 minutes of creation');
 
   if (data.title || data.body) {
     const text = [data.title, data.body].filter(Boolean).join(' ');

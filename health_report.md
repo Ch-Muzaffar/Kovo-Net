@@ -101,6 +101,12 @@
 | 11 | Sequential profile loading | ✅ Resolved — `Promise.all()` parallelism |
 | 12 | PDF viewer CORS limitations | ✅ Resolved — Google Doc Viewer fallback |
 | 13 | Messaging UI mobile overflow | ✅ Resolved — CSS height fix |
+| 14 | Infinite Scroll on Feed | ✅ Resolved — IntersectionObserver pagination |
+| 15 | Unread Message Badges | ✅ Resolved — Count tracking + sidebar badges |
+| 16 | Post Editing & Time-window | ✅ Resolved — Frontend + Backend 15m window enforcement |
+| 17 | Post Draft Auto-saving | ✅ Resolved — LocalStorage post draft caching |
+| 18 | Recent Search History Suggestions | ✅ Resolved — LocalStorage based search history dropdown |
+| 19 | Soft-delete/Unsend DMs | ✅ Resolved — Soft-delete messages route + frontend context menu |
 
 ---
 
@@ -113,4 +119,4 @@
 | `npm start` (backend) | ✅ RUNNING — `:5000`, mock DB + WS initialized |
 | `npm run dev` (frontend) | ✅ RUNNING — `:5173`, ready in 763ms |
 | Health endpoint | ✅ `GET /api/v1/health` available |
-| Git status | Clean (no uncommitted changes since last session) |
+| Git status | Clean (all feature tasks completed successfully) |
