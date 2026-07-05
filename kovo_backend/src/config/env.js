@@ -9,11 +9,14 @@ try {
 
 const z = require('zod');
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
+// Load .env silently — on Vercel the file won't exist and that's fine
+require('dotenv').config({ path: path.resolve(__dirname, '../../.env'), override: false });
 
 // Allow placeholder credentials in mock mode
 const isMockMode = process.env.USE_MOCK_DB === 'true' ||
-  (process.env.SUPABASE_URL || '').includes('your-project.supabase.co');
+  (!process.env.SUPABASE_URL) ||
+  (process.env.SUPABASE_URL || '').includes('your-project.supabase.co') ||
+  (process.env.SUPABASE_URL || '').includes('mock.supabase.co');
 
 const optionalInMock = (schema) => isMockMode ? z.string().optional().default('mock') : schema;
 

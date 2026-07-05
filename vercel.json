@@ -1,5 +1,6 @@
 {
   "version": 2,
+  "buildCommand": "npm install --prefix kovo_backend && cd kovo_frontend && npm install && npm run build",
   "outputDirectory": "kovo_frontend/dist",
   "rewrites": [
     {

@@ -55,13 +55,12 @@ if (IS_MOCK) {
   console.log('[Kovo] Running with in-memory mock database (no Supabase required)');
 } else {
   const { createClient } = require('@supabase/supabase-js');
-  const ws = require('ws');
 
   // Admin client: bypasses RLS — used ONLY for system-level and admin operations.
+  // Note: realtime transport omitted — not needed for serverless REST API usage.
   const adminClient = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },
     db: { schema: 'public' },
-    realtime: { transport: ws }
   });
   supabaseAdmin = wrapClient(adminClient);
 
@@ -69,7 +68,6 @@ if (IS_MOCK) {
   const anonClient = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },
     db: { schema: 'public' },
-    realtime: { transport: ws }
   });
   supabaseAnon = wrapClient(anonClient);
 
@@ -83,7 +81,6 @@ if (IS_MOCK) {
       global: { headers: { Authorization: `Bearer ${accessToken}` } },
       auth: { autoRefreshToken: false, persistSession: false },
       db: { schema: 'public' },
-      realtime: { transport: ws }
     }));
   };
 }
