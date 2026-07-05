@@ -578,10 +578,20 @@ export function PostsProvider({ children }) {
   const navigation = useContext(NavigationContext);
   const view = navigation?.view || 'feed';
 
+  // Initial feed load on login
   useEffect(() => {
     if (isLoggedIn) {
       loadFeed();
     }
+  }, [isLoggedIn, loadFeed]);
+
+  // Background silent poll — refresh feed every 60s without disturbing user
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    const interval = setInterval(() => {
+      loadFeed(null, true); // silent=true: merges new posts without resetting scroll
+    }, 60_000);
+    return () => clearInterval(interval);
   }, [isLoggedIn, loadFeed]);
 
   // Real-time WebSocket new post and comment reaction listener

@@ -22,6 +22,8 @@ export default function MessagesView() {
   const [dmInput, setDmInput] = useState('');
   const [dmUploading, setDmUploading] = useState(false);
   const dmAttachmentRef = useRef(null);
+  // Sentinel ref — scrolled into view on every new message
+  const messagesEndRef = useRef(null);
 
   const [loadingMore, setLoadingMore] = useState(false);
   const [contextMenuMsg, setContextMenuMsg] = useState(null); // { id, isMe, text, ts, reactions }
@@ -30,6 +32,14 @@ export default function MessagesView() {
   const activeConv = activeDmUserId
     ? dmConversations.find(c => c.participantId === activeDmUserId)
     : null;
+
+  // Auto-scroll to bottom when a new message arrives in the active chat
+  useEffect(() => {
+    if (!activeConv) return;
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [activeConv?.messages?.length, activeDmUserId]);
+
+
 
   const handleSendDm = () => {
     if (!dmInput.trim() || !activeDmUserId) return;
@@ -453,6 +463,8 @@ export default function MessagesView() {
                 );
               })
             )}
+            {/* Scroll sentinel — keeps view pinned to latest message */}
+            <div ref={messagesEndRef} style={{ height: '1px', flexShrink: 0 }} />
           </div>
 
           {/* Message Input */}

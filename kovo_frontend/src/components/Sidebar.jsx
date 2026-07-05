@@ -7,7 +7,7 @@ import { connectionsApi } from '../api/connections.js';
 export default function Sidebar() {
   const { darkMode, toggleDarkMode } = useTheme();
   const { openModal } = useUI();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const { view, navigate } = useNavigation();
   const { bookmarkedPosts } = usePosts();
   const { notifications } = useNotifications();

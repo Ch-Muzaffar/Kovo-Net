@@ -87,7 +87,7 @@ export default function Feed() {
                 <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'var(--gradient-btn)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, color: '#fff', fontSize: '0.7rem', flexShrink: 0, fontFamily: "'Plus Jakarta Sans',sans-serif" }}>KN</div>
                 <div className="feed-header-brand-text" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '1px', lineHeight: 1 }}>
                   <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 900, fontSize: '0.95rem', color: 'var(--text-primary)', letterSpacing: '-0.02em', lineHeight: 1 }}>KOVO</span>
-                  <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 700, fontSize: '0.5rem', color: 'var(--text-muted)', letterSpacing: '0.12em', lineHeight: 1, textTransform: 'uppercase' }}>NET</span>
+                  <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 700, fontSize: '0.5rem', color: 'var(--text-muted)', letterSpacing: '0.28em', lineHeight: 1, textTransform: 'uppercase', width: '100%', textAlign: 'center', display: 'block' }}>NET</span>
                 </div>
               </button>
             </div>
@@ -97,7 +97,7 @@ export default function Feed() {
               <div className="feed-header-search-inner">
                 <Icon icon="lucide:search" style={{ position: 'absolute', left: '26px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '1rem', pointerEvents: 'none', zIndex: 5 }} />
                 <input
-                  type="search"
+                  type="text"
                   style={{
                     paddingLeft: '2.5rem',
                     paddingTop: '.65rem',
@@ -319,7 +319,7 @@ export default function Feed() {
                 <Icon icon="lucide:search" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '1rem', pointerEvents: 'none', zIndex: 5 }} />
                 <input
                   autoFocus
-                  type="search"
+                  type="text"
                   style={{
                     paddingLeft: '2.5rem',
                     paddingTop: '.65rem',
