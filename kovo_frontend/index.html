@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>KOVO NET — You Are Not Alone</title>
+    <meta name="description" content="A human-first knowledge network where real people solve real problems together." />
+    <script>
+      (function() {
+        const hash = window.location.hash || '';
+        let profileId = null;
+        const match = hash.match(/^#\/profile\/(.+)$/);
+        if (match) {
+          profileId = match[1];
+        } else if (hash === '#/profile') {
+          try {
+            const user = JSON.parse(localStorage.getItem('kovo_user') || 'null');
+            if (user && user.id) {
+              profileId = user.id;
+            }
+          } catch (e) {}
+        }
+        
+        const token = localStorage.getItem('kovo_access_token');
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = 'Bearer ' + token;
+
+        if (profileId) {
+          console.log('[Kovo Prefetch] Sniffed direct hit on profile:', profileId);
+          window.__KOVO_PREFETCHED_PROFILES__ = window.__KOVO_PREFETCHED_PROFILES__ || {};
+          
+          window.__KOVO_PREFETCHED_PROFILES__[profileId] = fetch('/api/v1/users/' + profileId + '/full', {
+            method: 'GET',
+            headers: headers
+          })
+          .then(res => {
+            if (!res.ok) throw new Error('Failed to prefetch profile');
+            return res.json();
+          })
+          .then(json => json.data || json)
+          .catch(err => {
+            console.warn('[Kovo Prefetch] Error:', err);
+            delete window.__KOVO_PREFETCHED_PROFILES__[profileId];
+            throw err;
+          });
+        } else if (hash === '#/connections') {
+          console.log('[Kovo Prefetch] Sniffed direct hit on connections');
+          window.__KOVO_PREFETCHED_CONNECTIONS__ = window.__KOVO_PREFETCHED_CONNECTIONS__ || {};
+          
+          const pReceived = fetch('/api/v1/connections/pending/received', {
+            method: 'GET',
+            headers: headers
+          })
+          .then(res => {
+            if (!res.ok) throw new Error('Failed to prefetch received connections');
+            return res.json();
+          })
+          .then(json => json.data || json)
+          .catch(err => {
+            console.warn('[Kovo Prefetch] Received Error:', err);
+            throw err;
+          });
+
+          const pSent = fetch('/api/v1/connections/pending/sent', {
+            method: 'GET',
+            headers: headers
+          })
+          .then(res => {
+            if (!res.ok) throw new Error('Failed to prefetch sent connections');
+            return res.json();
+          })
+          .then(json => json.data || json)
+          .catch(err => {
+            console.warn('[Kovo Prefetch] Sent Error:', err);
+            throw err;
+          });
+
+          window.__KOVO_PREFETCHED_CONNECTIONS__ = {
+            received: pReceived,
+            sent: pSent
+          };
+
+          Promise.all([pReceived, pSent]).catch(err => {
+            console.warn('[Kovo Prefetch] Connections Promise.all Error:', err);
+            delete window.__KOVO_PREFETCHED_CONNECTIONS__;
+          });
+        }
+      })();
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+              display: ['Plus Jakarta Sans', 'sans-serif']
+            },
+            colors: {
+              kovo: {
+                50: '#F0FDFA',
+                100: '#CCFBF1',
+                200: '#99F6E4',
+                300: '#5EEAD4',
+                400: '#0D9488',
+                500: '#0F766E',
+                600: '#0D9488',
+                700: '#0F766E',
+                800: '#115E59',
+                900: '#134E4A'
+              },
+              surface: {
+                50: '#F8FAFC',
+                100: '#F1F5F9',
+                200: '#E2E8F0',
+                700: '#F8FAFC',
+                800: '#FFFFFF',
+                850: '#FFFFFF',
+                900: '#F8FAFC',
+                950: '#FFFFFF'
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <script src="https://code.iconify.design/iconify-icon/2.1.0/iconify-icon.min.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
