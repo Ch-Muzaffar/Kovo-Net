@@ -5,7 +5,8 @@ const env = require('./env');
 // ─── Mock mode detection ───
 // Use mock when USE_MOCK_DB=true OR when Supabase URL is a placeholder
 const IS_MOCK = process.env.USE_MOCK_DB === 'true' ||
-  env.SUPABASE_URL.includes('your-project.supabase.co');
+  env.SUPABASE_URL.includes('your-project.supabase.co') ||
+  env.SUPABASE_URL.includes('mock.supabase.co');
 
 let supabaseAdmin, createUserClient, supabaseAnon;
 
